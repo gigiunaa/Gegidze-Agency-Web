@@ -34,6 +34,7 @@ export const projectRoot = ROOT;
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   jwtSecret: process.env.JWT_SECRET || 'gegidze-dev-secret',
+  databaseUrl: process.env.DATABASE_URL || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   zohoClientId: process.env.ZOHO_CLIENT_ID || '',

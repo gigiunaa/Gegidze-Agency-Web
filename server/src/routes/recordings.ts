@@ -26,9 +26,8 @@ export function createRecordingsRouter(db: DatabaseService): Router {
     },
   });
 
-  const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB max
+  const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 } });
 
-  // Upload recording (mic + optional speaker)
   router.post('/upload', upload.fields([
     { name: 'mic', maxCount: 1 },
     { name: 'speaker', maxCount: 1 },
@@ -41,7 +40,7 @@ export function createRecordingsRouter(db: DatabaseService): Router {
         return res.status(400).json({ error: 'meetingId and mic audio file are required' });
       }
 
-      const meeting = db.getMeeting(meetingId);
+      const meeting = await db.getMeeting(meetingId);
       if (!meeting || meeting.userId !== req.userId) {
         return res.status(404).json({ error: 'Meeting not found' });
       }
@@ -49,7 +48,7 @@ export function createRecordingsRouter(db: DatabaseService): Router {
       const micFile = files.mic[0];
       const speakerFile = files.speaker?.[0];
 
-      const recording = db.createRecording({
+      const recording = await db.createRecording({
         meetingId,
         filePath: micFile.path,
         speakerFilePath: speakerFile?.path,
@@ -58,20 +57,20 @@ export function createRecordingsRouter(db: DatabaseService): Router {
         format: 'webm',
       });
 
-      db.updateMeetingStatus(meetingId, 'processing');
+      await db.updateMeetingStatus(meetingId, 'processing');
 
       // Auto-transcribe in background, then auto-generate summary
-      transcription.transcribe(recording.id).then(() => {
-        const trans = db.getTranscription(meetingId);
+      transcription.transcribe(recording.id).then(async () => {
+        const trans = await db.getTranscription(meetingId);
         if (trans) {
           console.log('Auto-generating summary...');
           return summaryService.generate(trans.id);
         }
       }).then(() => {
         console.log(`Summary generated for meeting ${meetingId}`);
-      }).catch((err) => {
+      }).catch(async (err) => {
         console.error('Auto-transcription/summary failed:', err);
-        db.updateMeetingStatus(meetingId, 'failed', err instanceof Error ? err.message : String(err));
+        await db.updateMeetingStatus(meetingId, 'failed', err instanceof Error ? err.message : String(err));
       });
 
       return res.json(recording);

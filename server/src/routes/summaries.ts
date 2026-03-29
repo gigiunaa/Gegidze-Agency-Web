@@ -7,12 +7,12 @@ export function createSummariesRouter(db: DatabaseService): Router {
   const router = Router();
   const summaryService = new SummaryService(db);
 
-  router.get('/:meetingId', (req: AuthRequest, res) => {
-    const meeting = db.getMeeting(req.params.meetingId as string);
+  router.get('/:meetingId', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.meetingId as string);
     if (!meeting || meeting.userId !== req.userId) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
-    const summary = db.getSummary(req.params.meetingId as string);
+    const summary = await db.getSummary(req.params.meetingId as string);
     return res.json(summary);
   });
 

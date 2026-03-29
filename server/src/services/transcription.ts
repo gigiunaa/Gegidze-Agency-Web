@@ -12,7 +12,7 @@ export class TranscriptionService {
   }
 
   async transcribe(recordingId: string): Promise<void> {
-    const recording = this.db.getRecording(recordingId);
+    const recording = await this.db.getRecording(recordingId);
     if (!recording) {
       throw new Error(`Recording not found: ${recordingId}`);
     }
@@ -47,7 +47,7 @@ export class TranscriptionService {
       .map(seg => `[${seg.speaker}] ${seg.text}`)
       .join('\n');
 
-    this.db.createTranscription({
+    await this.db.createTranscription({
       meetingId: recording.meetingId,
       recordingId: recording.id,
       segments: allSegments,
@@ -56,7 +56,7 @@ export class TranscriptionService {
     });
 
     console.log(`Transcription complete for ${recording.meetingId}: ${allSegments.length} segments`);
-    this.db.updateMeetingStatus(recording.meetingId, 'completed');
+    await this.db.updateMeetingStatus(recording.meetingId, 'completed');
   }
 
   private async callWhisperApi(filePath: string): Promise<{

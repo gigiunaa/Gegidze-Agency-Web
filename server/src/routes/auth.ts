@@ -15,13 +15,13 @@ export function createAuthRouter(db: DatabaseService): Router {
         return res.status(400).json({ error: 'Email, password, and name are required' });
       }
 
-      const existing = db.getUserByEmail(email);
+      const existing = await db.getUserByEmail(email);
       if (existing) {
         return res.status(400).json({ error: 'Email already registered' });
       }
 
       const passwordHash = await bcrypt.hash(password, 12);
-      const user = db.createUser(email, passwordHash, name);
+      const user = await db.createUser(email, passwordHash, name);
 
       const token = jwt.sign({ userId: user.id, role: user.role }, config.jwtSecret, { expiresIn: '7d' });
 
@@ -43,7 +43,7 @@ export function createAuthRouter(db: DatabaseService): Router {
         return res.status(400).json({ error: 'Email and password are required' });
       }
 
-      const user = db.getUserByEmail(email);
+      const user = await db.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ error: 'Invalid email or password' });
       }

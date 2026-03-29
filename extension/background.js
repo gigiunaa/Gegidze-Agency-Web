@@ -1,5 +1,6 @@
 // ── Config ────────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3001/api';
+// Change this to your Railway URL for production, or keep localhost for local dev
+const API_BASE = 'https://gegidze-agency-web-production.up.railway.app/api';
 
 const CALL_PATTERNS = [
   { pattern: /^https:\/\/meet\.google\.com\/[a-z]+-[a-z]+-[a-z]+/i, platform: 'Google Meet' },

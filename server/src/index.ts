@@ -16,6 +16,14 @@ import { createZohoRouter } from './routes/zoho';
 const app = express();
 const db = new DatabaseService();
 
+// Initialize database tables
+db.init().then(() => {
+  console.log('Database initialized');
+}).catch((err) => {
+  console.error('Database init failed:', err);
+  process.exit(1);
+});
+
 // Middleware — CORS
 const ALLOWED_ORIGINS = [
   'https://gegidze-agency-web-production.up.railway.app',

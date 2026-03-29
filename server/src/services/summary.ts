@@ -11,7 +11,7 @@ export class SummaryService {
   }
 
   async generate(transcriptionId: string): Promise<void> {
-    const transcription = this.db.getTranscriptionById(transcriptionId);
+    const transcription = await this.db.getTranscriptionById(transcriptionId);
     if (!transcription) {
       throw new Error(`Transcription not found: ${transcriptionId}`);
     }
@@ -71,7 +71,7 @@ ${transcription.fullText}`,
       decisions: string[];
     };
 
-    this.db.createSummary({
+    await this.db.createSummary({
       meetingId: transcription.meetingId,
       transcriptionId: transcription.id,
       overview: parsed.overview,

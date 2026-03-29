@@ -7,7 +7,6 @@ export function createZohoRouter(db: DatabaseService): Router {
   const router = Router();
   const zoho = new ZohoService();
 
-  // Search leads by name or email
   router.get('/search', async (req: AuthRequest, res) => {
     const query = req.query.q as string;
     if (!query || query.length < 2) {
@@ -23,7 +22,6 @@ export function createZohoRouter(db: DatabaseService): Router {
     }
   });
 
-  // Get deals for a lead
   router.get('/leads/:leadId/deals', async (req: AuthRequest, res) => {
     try {
       const deals = await zoho.getDealsByLead(req.params.leadId as string);
@@ -34,7 +32,6 @@ export function createZohoRouter(db: DatabaseService): Router {
     }
   });
 
-  // Push summary to Lead + Deal descriptions
   router.post('/push-summary', async (req: AuthRequest, res) => {
     const { meetingId, leadId } = req.body;
 
@@ -43,17 +40,16 @@ export function createZohoRouter(db: DatabaseService): Router {
     }
 
     try {
-      const meeting = db.getMeeting(meetingId);
+      const meeting = await db.getMeeting(meetingId);
       if (!meeting) {
         return res.status(404).json({ error: 'Meeting not found' });
       }
 
-      const summary = db.getSummary(meetingId);
+      const summary = await db.getSummary(meetingId);
       if (!summary) {
         return res.status(400).json({ error: 'No summary available for this meeting' });
       }
 
-      // Format summary text
       const summaryText = [
         summary.overview,
         '',
@@ -71,8 +67,7 @@ export function createZohoRouter(db: DatabaseService): Router {
         new Date(meeting.startTime).toLocaleString(),
       );
 
-      // Save the link in meeting metadata
-      db.setMeetingZohoLead(meetingId, leadId);
+      await db.setMeetingZohoLead(meetingId, leadId);
 
       return res.json({
         ok: true,
