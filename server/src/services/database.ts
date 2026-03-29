@@ -14,86 +14,82 @@ export class DatabaseService {
   }
 
   async init(): Promise<void> {
-    await this.pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user',
-        team_id TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    // Create tables one by one (transaction pooler doesn't support multi-statement queries)
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      team_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
-      CREATE TABLE IF NOT EXISTS teams (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS teams (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
-      CREATE TABLE IF NOT EXISTS meetings (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        title TEXT NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        calendar_source TEXT NOT NULL DEFAULT 'manual',
-        calendar_event_id TEXT,
-        participants TEXT NOT NULL DEFAULT '[]',
-        status TEXT NOT NULL DEFAULT 'scheduled',
-        error_message TEXT,
-        zoho_lead_id TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS meetings (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      calendar_source TEXT NOT NULL DEFAULT 'manual',
+      calendar_event_id TEXT,
+      participants TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'scheduled',
+      error_message TEXT,
+      zoho_lead_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
-      CREATE TABLE IF NOT EXISTS recordings (
-        id TEXT PRIMARY KEY,
-        meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-        file_path TEXT NOT NULL,
-        speaker_file_path TEXT,
-        duration_seconds REAL NOT NULL DEFAULT 0,
-        file_size INTEGER NOT NULL DEFAULT 0,
-        format TEXT NOT NULL DEFAULT 'webm',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS recordings (
+      id TEXT PRIMARY KEY,
+      meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+      file_path TEXT NOT NULL,
+      speaker_file_path TEXT,
+      duration_seconds REAL NOT NULL DEFAULT 0,
+      file_size INTEGER NOT NULL DEFAULT 0,
+      format TEXT NOT NULL DEFAULT 'webm',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
-      CREATE TABLE IF NOT EXISTS transcriptions (
-        id TEXT PRIMARY KEY,
-        meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-        recording_id TEXT NOT NULL REFERENCES recordings(id) ON DELETE CASCADE,
-        segments TEXT NOT NULL DEFAULT '[]',
-        full_text TEXT NOT NULL DEFAULT '',
-        language TEXT NOT NULL DEFAULT 'en',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS transcriptions (
+      id TEXT PRIMARY KEY,
+      meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+      recording_id TEXT NOT NULL REFERENCES recordings(id) ON DELETE CASCADE,
+      segments TEXT NOT NULL DEFAULT '[]',
+      full_text TEXT NOT NULL DEFAULT '',
+      language TEXT NOT NULL DEFAULT 'en',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
-      CREATE TABLE IF NOT EXISTS summaries (
-        id TEXT PRIMARY KEY,
-        meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-        transcription_id TEXT NOT NULL REFERENCES transcriptions(id) ON DELETE CASCADE,
-        overview TEXT NOT NULL DEFAULT '',
-        key_points TEXT NOT NULL DEFAULT '[]',
-        action_items TEXT NOT NULL DEFAULT '[]',
-        decisions TEXT NOT NULL DEFAULT '[]',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS summaries (
+      id TEXT PRIMARY KEY,
+      meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+      transcription_id TEXT NOT NULL REFERENCES transcriptions(id) ON DELETE CASCADE,
+      overview TEXT NOT NULL DEFAULT '',
+      key_points TEXT NOT NULL DEFAULT '[]',
+      action_items TEXT NOT NULL DEFAULT '[]',
+      decisions TEXT NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
-      CREATE TABLE IF NOT EXISTS settings (
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        key TEXT NOT NULL,
-        value TEXT NOT NULL,
-        PRIMARY KEY (user_id, key)
-      );
-    `);
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS settings (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      PRIMARY KEY (user_id, key)
+    )`);
 
-    // Create indexes (IF NOT EXISTS is supported in PG 9.5+)
-    await this.pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_meetings_user ON meetings(user_id);
-      CREATE INDEX IF NOT EXISTS idx_recordings_meeting ON recordings(meeting_id);
-      CREATE INDEX IF NOT EXISTS idx_transcriptions_meeting ON transcriptions(meeting_id);
-      CREATE INDEX IF NOT EXISTS idx_summaries_meeting ON summaries(meeting_id);
-    `);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_meetings_user ON meetings(user_id)`);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_recordings_meeting ON recordings(meeting_id)`);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_transcriptions_meeting ON transcriptions(meeting_id)`);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_summaries_meeting ON summaries(meeting_id)`);
   }
 
   // ─── Users ────────────────────────────────────────────────────────
