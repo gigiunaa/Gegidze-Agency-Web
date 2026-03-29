@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'https://gegidze-agency-web-production.up.railway.app/api';
 
 // ── DOM Elements ──────────────────────────────────────────────────────────
 const loginView = document.getElementById('login-view');
