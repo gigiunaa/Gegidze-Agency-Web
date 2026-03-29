@@ -92,31 +92,6 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// Temporary seed endpoint — DELETE AFTER SETUP
-app.post('/api/seed-reset', async (req, res) => {
-  const secret = req.headers['x-seed-secret'];
-  if (secret !== 'gegidze-seed-2026') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  try {
-    const bcrypt = await import('bcryptjs');
-    // Delete all users (cascades to meetings, etc.)
-    const allUsers = db.getUsers();
-    for (const u of allUsers) {
-      db.deleteUser(u.id);
-    }
-    // Create admin user
-    const hash = await bcrypt.hash('12345678', 12);
-    const user = db.createUser('gg.gegidze@gmail.com', hash, 'Gigi Gegidze');
-    // Set role to admin
-    db.updateUserRole(user.id, 'admin');
-    return res.json({ ok: true, message: 'Database reset. Admin user created.', userId: user.id });
-  } catch (err: unknown) {
-    console.error('Seed error:', err);
-    return res.status(500).json({ error: String(err) });
-  }
-});
-
 // Serve client static files in production
 const clientDist = path.join(projectRoot, 'client/dist');
 app.use(express.static(clientDist));
