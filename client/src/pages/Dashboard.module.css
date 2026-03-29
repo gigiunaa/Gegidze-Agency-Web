@@ -1,0 +1,146 @@
+/* ─── Page ────────────────────────────────────────────────────────── */
+.page {
+  max-width: 960px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Quick Actions ──────────────────────────────────────────────── */
+.quickActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ─── Stats Grid ─────────────────────────────────────────────────── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+/* ─── Active Recording Banner ────────────────────────────────────── */
+.activeBanner {
+  margin-bottom: var(--space-8);
+  border-color: rgba(239, 68, 68, 0.25);
+  background: var(--color-error-dim);
+}
+
+.activeBanner:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.bannerContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.recordingDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-recording);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  animation: pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.viewBtn {
+  margin-left: auto;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: var(--text-xs);
+}
+
+/* ─── Content Grid ───────────────────────────────────────────────── */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+}
+
+/* ─── Sections ───────────────────────────────────────────────────── */
+.section {
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Meeting List ───────────────────────────────────────────────── */
+.meetingList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.meetingCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meetingInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.meetingTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meetingTime {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* ─── Skeleton Loading ───────────────────────────────────────────── */
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .quickActions {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,120 @@
+/* ─── Page ────────────────────────────────────────────────────────── */
+.page {
+  max-width: 960px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Toolbar ─────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 16px);
+  margin-bottom: var(--spacing-lg, 24px);
+}
+
+.search {
+  max-width: 320px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs, 6px);
+}
+
+.filterPill {
+  padding: 6px 14px;
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s);
+  letter-spacing: 0.2px;
+}
+
+.filterPill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.filterPillActive {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.filterPillActive:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: #fff;
+}
+
+/* ─── Skeleton loading toolbar ────────────────────────────────────── */
+.skeletonToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 16px);
+  margin-bottom: var(--spacing-lg, 24px);
+}
+
+/* ─── Cell styles ─────────────────────────────────────────────────── */
+.meetingTitle {
+  font-weight: 600;
+  font-size: var(--font-size-md, 14px);
+}
+
+.meetingDate {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm, 13px);
+}
+
+.participants {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm, 13px);
+}
+
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.errorHint {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-error);
+  opacity: 0.8;
+  line-height: 1.3;
+}
+
+/* ─── Delete button ───────────────────────────────────────────────── */
+.deleteBtn {
+  opacity: 0;
+  width: fit-content;
+  padding: 2px 6px !important;
+  font-size: var(--font-size-sm, 13px) !important;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+/* Show delete button on row hover — DataTable row uses [class*="row"] */
+:global([class*="row"]):hover .deleteBtn {
+  opacity: 1;
+}
+
+.deleteBtn:hover {
+  color: var(--color-error) !important;
+  background: var(--color-error-dim) !important;
+}

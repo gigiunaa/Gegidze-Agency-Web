@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gegidze Recorder</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Login View -->
+  <div id="login-view" class="view">
+    <div class="logo">🎙️</div>
+    <h1>Gegidze</h1>
+    <p class="subtitle">Meeting Recorder</p>
+    <form id="login-form">
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit" class="btn btn-primary">Log In</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <!-- Main View -->
+  <div id="main-view" class="view hidden">
+    <div class="header">
+      <div class="header-left">
+        <span class="logo-sm">🎙️</span>
+        <strong>Gegidze</strong>
+      </div>
+      <button id="logout-btn" class="btn-icon" title="Logout">⏻</button>
+    </div>
+
+    <!-- Call Status -->
+    <div id="call-status" class="status-card hidden">
+      <div class="status-dot"></div>
+      <span id="call-platform">No call detected</span>
+    </div>
+
+    <div id="no-call-status" class="status-card idle">
+      <span>No active call detected</span>
+    </div>
+
+    <!-- Recording Controls -->
+    <div id="recording-section">
+      <div id="not-recording" class="rec-controls">
+        <button id="record-btn" class="btn btn-record" disabled>
+          <span class="rec-icon">●</span> Start Recording
+        </button>
+      </div>
+
+      <div id="is-recording" class="rec-controls hidden">
+        <div class="rec-active">
+          <div class="rec-pulse"></div>
+          <span class="rec-timer" id="rec-timer">00:00</span>
+        </div>
+        <button id="stop-btn" class="btn btn-stop">
+          <span>■</span> Stop Recording
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings">
+      <label class="toggle-row">
+        <span>Auto-record calls</span>
+        <input type="checkbox" id="auto-record">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Error -->
+    <p id="main-error" class="error"></p>
+
+    <!-- Recent -->
+    <div id="upload-status" class="upload-status hidden">
+      <span>✓ Recording uploaded & processing</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

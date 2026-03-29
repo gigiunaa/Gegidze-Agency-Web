@@ -1,0 +1,61 @@
+/* ─── Badge ─────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ─── Variants ──────────────────────────────────────────────────── */
+
+.scheduled {
+  background-color: var(--color-accent-dim);
+  color: var(--color-accent);
+}
+
+.recording {
+  background-color: var(--color-error-dim);
+  color: var(--color-error);
+}
+
+.processing {
+  background-color: var(--color-warning-dim);
+  color: var(--color-warning);
+}
+
+.completed {
+  background-color: var(--color-success-dim);
+  color: var(--color-success);
+}
+
+.failed {
+  background-color: var(--color-error-dim);
+  color: var(--color-error);
+}
+
+.admin {
+  background-color: var(--color-accent-dim);
+  color: var(--color-accent);
+}
+
+.manager {
+  background-color: var(--color-warning-dim);
+  color: var(--color-warning);
+}
+
+.user {
+  background-color: rgba(92, 92, 114, 0.12);
+  color: var(--color-text-muted);
+}
+
+.info {
+  background-color: var(--color-accent-dim);
+  color: var(--color-accent);
+}

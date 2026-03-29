@@ -1,0 +1,32 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-10);
+  background: var(--color-bg-primary);
+  animation: fadeIn 0.25s ease-out;
+}
+
+@media (max-width: 1024px) {
+  .content {
+    padding: var(--space-6) var(--space-6);
+  }
+}
+
+@media (max-width: 768px) {
+  .content {
+    padding: var(--space-4) var(--space-4);
+  }
+}
