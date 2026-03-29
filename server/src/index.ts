@@ -16,12 +16,64 @@ import { createZohoRouter } from './routes/zoho';
 const app = express();
 const db = new DatabaseService();
 
-// Middleware
+// Middleware — CORS
+const ALLOWED_ORIGINS = [
+  'https://gegidze-agency-web-production.up.railway.app',
+];
+if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+  ALLOWED_ORIGINS.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+}
+
 app.use(cors({
   credentials: true,
-  origin: true,
+  origin: (origin, callback) => {
+    // Allow: same-origin (no origin header), localhost dev, chrome extension, and production domain
+    if (
+      !origin ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('chrome-extension://') ||
+      ALLOWED_ORIGINS.includes(origin)
+    ) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
 }));
 app.use(express.json({ limit: '50mb' }));
+
+// Security headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Simple rate limiter for auth routes (brute-force protection)
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+app.use('/api/auth', (req, res, next) => {
+  if (req.method !== 'POST') return next();
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (entry && entry.resetAt > now) {
+    if (entry.count >= 10) {
+      return res.status(429).json({ error: 'Too many login attempts. Try again later.' });
+    }
+    entry.count++;
+  } else {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 }); // 15 min window
+  }
+  // Cleanup old entries periodically
+  if (loginAttempts.size > 10000) {
+    for (const [key, val] of loginAttempts) {
+      if (val.resetAt < now) loginAttempts.delete(key);
+    }
+  }
+  next();
+});
 
 // Public routes
 app.use('/api/auth', createAuthRouter(db));

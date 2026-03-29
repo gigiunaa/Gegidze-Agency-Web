@@ -39,6 +39,11 @@ export const config = {
   zohoClientId: process.env.ZOHO_CLIENT_ID || '',
   zohoClientSecret: process.env.ZOHO_CLIENT_SECRET || '',
   zohoRefreshToken: process.env.ZOHO_REFRESH_TOKEN || '',
-  uploadsDir: path.join(ROOT, 'server/uploads'),
-  dataDir: path.join(ROOT, 'server/data'),
+  // On Railway, use persistent volume at /data; locally use server/uploads and server/data
+  uploadsDir: process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
+    : path.join(ROOT, 'server/uploads'),
+  dataDir: process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
+    : path.join(ROOT, 'server/data'),
 };
