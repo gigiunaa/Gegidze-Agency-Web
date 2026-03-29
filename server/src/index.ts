@@ -17,24 +17,9 @@ const app = express();
 const db = new DatabaseService();
 
 // Middleware
-const allowedOrigins = process.env.RAILWAY_PUBLIC_DOMAIN
-  ? [`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`]
-  : [];
-
 app.use(cors({
   credentials: true,
-  origin: (origin, callback) => {
-    if (
-      !origin ||
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('chrome-extension://') ||
-      allowedOrigins.includes(origin)
-    ) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true,
 }));
 app.use(express.json({ limit: '50mb' }));
 
