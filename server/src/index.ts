@@ -16,14 +16,6 @@ import { createZohoRouter } from './routes/zoho';
 const app = express();
 const db = new DatabaseService();
 
-// Initialize database tables
-db.init().then(() => {
-  console.log('Database initialized');
-}).catch((err) => {
-  console.error('Database init failed:', err);
-  process.exit(1);
-});
-
 // Middleware — CORS
 const ALLOWED_ORIGINS = [
   'https://gegidze-agency-web-production.up.railway.app',
@@ -35,7 +27,6 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 app.use(cors({
   credentials: true,
   origin: (origin, callback) => {
-    // Allow: same-origin (no origin header), localhost dev, chrome extension, and production domain
     if (
       !origin ||
       origin.startsWith('http://localhost:') ||
@@ -72,9 +63,8 @@ app.use('/api/auth', (req, res, next) => {
     }
     entry.count++;
   } else {
-    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 }); // 15 min window
+    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
   }
-  // Cleanup old entries periodically
   if (loginAttempts.size > 10000) {
     for (const [key, val] of loginAttempts) {
       if (val.resetAt < now) loginAttempts.delete(key);
@@ -107,12 +97,26 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
-app.listen(config.port, () => {
-  console.log(`Gegidze Agency API running on port ${config.port}`);
-});
+// Start server first, then init database
+async function start() {
+  const server = app.listen(config.port, () => {
+    console.log(`Gegidze Agency API running on port ${config.port}`);
+  });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  db.close();
-  process.exit(0);
-});
+  try {
+    await db.init();
+    console.log('Database connected and initialized');
+  } catch (err) {
+    console.error('Database init failed:', err);
+    console.error('Server running but database unavailable — check DATABASE_URL');
+  }
+
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    await db.close();
+    server.close();
+    process.exit(0);
+  });
+}
+
+start();
