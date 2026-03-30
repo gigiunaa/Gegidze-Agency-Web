@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { adminMiddleware, type AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
 
@@ -16,7 +17,7 @@ export function createAdminRouter(db: DatabaseService): Router {
     res.json(meetings);
   });
 
-  router.put('/users/:id/role', async (req: AuthRequest, res) => {
+  router.patch('/users/:id/role', async (req: AuthRequest, res) => {
     const targetId = req.params.id as string;
     const { role } = req.body;
 
@@ -62,7 +63,7 @@ export function createAdminRouter(db: DatabaseService): Router {
     return res.json(team);
   });
 
-  router.put('/users/:id/team', async (req: AuthRequest, res) => {
+  router.patch('/users/:id/team', async (req: AuthRequest, res) => {
     const targetId = req.params.id as string;
     const { teamId } = req.body;
 
@@ -72,6 +73,30 @@ export function createAdminRouter(db: DatabaseService): Router {
     }
     await db.assignUserTeam(targetId, teamId ?? null);
     return res.json({ ok: true });
+  });
+
+  router.post('/users/invite', async (req: AuthRequest, res) => {
+    try {
+      const { email, password, name, role } = req.body;
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: 'Email, password, and name are required' });
+      }
+      const existing = await db.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
+      const validRoles = ['user', 'manager', 'admin'];
+      const userRole = validRoles.includes(role) ? role : 'user';
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await db.createUser(email, passwordHash, name);
+      if (userRole !== user.role) {
+        await db.updateUserRole(user.id, userRole);
+      }
+      return res.json({ ...user, role: userRole });
+    } catch (err) {
+      console.error('Invite error:', err);
+      return res.status(500).json({ error: 'Failed to invite user' });
+    }
   });
 
   router.get('/stats', async (_req: AuthRequest, res) => {
