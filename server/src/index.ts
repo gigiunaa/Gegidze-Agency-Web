@@ -95,6 +95,28 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+// Debug endpoint (temporary)
+app.get('/api/debug', async (_req, res) => {
+  try {
+    const meetings = await db.getAllMeetings();
+    const recent = meetings.slice(0, 5).map(m => ({
+      id: m.id,
+      title: m.title,
+      status: m.status,
+      error: m.errorMessage,
+      created: m.createdAt,
+    }));
+    res.json({
+      hasOpenAIKey: !!config.openaiApiKey,
+      openAIKeyPrefix: config.openaiApiKey ? config.openaiApiKey.substring(0, 7) + '...' : 'NOT SET',
+      uploadsDir: config.uploadsDir,
+      recentMeetings: recent,
+    });
+  } catch (err: any) {
+    res.json({ error: err.message });
+  }
+});
+
 // Serve client static files in production
 const clientDist = path.join(projectRoot, 'client/dist');
 app.use(express.static(clientDist));
