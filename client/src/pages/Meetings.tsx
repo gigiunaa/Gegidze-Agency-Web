@@ -24,11 +24,14 @@ const STATUSES: { label: string; value: MeetingStatus | 'all' }[] = [
   { label: 'Failed', value: 'failed' },
 ];
 
+type MeetingWithUser = Meeting & { userName?: string };
+
 export function MeetingsPage() {
   const { meetings, loading, fetchMeetings } = useMeetingsStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<MeetingStatus | 'all'>('all');
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchMeetings();
@@ -41,7 +44,7 @@ export function MeetingsPage() {
   }
 
   const filtered = useMemo(() => {
-    let result = meetings;
+    let result = meetings as MeetingWithUser[];
 
     if (statusFilter !== 'all') {
       result = result.filter((m) => m.status === statusFilter);
@@ -49,11 +52,42 @@ export function MeetingsPage() {
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      result = result.filter((m) => m.title.toLowerCase().includes(q));
+      result = result.filter(
+        (m) =>
+          m.title.toLowerCase().includes(q) ||
+          (m.userName && m.userName.toLowerCase().includes(q))
+      );
     }
 
     return result;
   }, [meetings, search, statusFilter]);
+
+  // Group meetings by userName
+  const grouped = useMemo(() => {
+    const groups = new Map<string, MeetingWithUser[]>();
+    for (const m of filtered) {
+      const name = (m as MeetingWithUser).userName || 'Unknown';
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name)!.push(m);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered]);
+
+  // Auto-open all folders on first load
+  useEffect(() => {
+    if (grouped.length > 0 && openFolders.size === 0) {
+      setOpenFolders(new Set(grouped.map(([name]) => name)));
+    }
+  }, [grouped]);
+
+  function toggleFolder(name: string) {
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
 
   const columns: Column<Meeting>[] = [
     {
@@ -143,6 +177,9 @@ export function MeetingsPage() {
     );
   }
 
+  // If only one user's meetings, show flat list (no folders needed)
+  const showFolders = grouped.length > 1;
+
   return (
     <div className={styles.page}>
       <PageHeader title="Meetings" subtitle={`${meetings.length} total`} />
@@ -175,6 +212,32 @@ export function MeetingsPage() {
           title="No matching meetings"
           description="Try adjusting your search or filter."
         />
+      ) : showFolders ? (
+        grouped.map(([userName, userMeetings]) => (
+          <div key={userName} className={styles.folderSection}>
+            <div
+              className={styles.folderHeader}
+              onClick={() => toggleFolder(userName)}
+            >
+              <span
+                className={`${styles.folderIcon} ${openFolders.has(userName) ? styles.folderIconOpen : ''}`}
+              >
+                ▶
+              </span>
+              <span className={styles.folderName}>{userName}</span>
+              <span className={styles.folderCount}>
+                {userMeetings.length} meeting{userMeetings.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            {openFolders.has(userName) && (
+              <DataTable<Meeting>
+                columns={columns}
+                data={userMeetings as (Meeting & Record<string, unknown>)[]}
+                onRowClick={(row) => navigate(`/meetings/${row.id}`)}
+              />
+            )}
+          </div>
+        ))
       ) : (
         <DataTable<Meeting>
           columns={columns}

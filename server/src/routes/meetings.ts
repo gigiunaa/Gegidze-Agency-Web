@@ -6,10 +6,20 @@ export function createMeetingsRouter(db: DatabaseService): Router {
   const router = Router();
 
   router.get('/', async (req: AuthRequest, res) => {
+    let meetings;
     if (req.userRole === 'admin' || req.userRole === 'manager') {
-      return res.json(await db.getAllMeetings());
+      meetings = await db.getAllMeetings();
+    } else {
+      meetings = await db.getMeetings(req.userId!);
     }
-    return res.json(await db.getMeetings(req.userId!));
+    // Attach user name to each meeting for folder grouping
+    const users = await db.getUsers();
+    const userMap = new Map(users.map(u => [u.id, u.name]));
+    const enriched = meetings.map(m => ({
+      ...m,
+      userName: userMap.get(m.userId) || 'Unknown',
+    }));
+    return res.json(enriched);
   });
 
   router.get('/:id', async (req: AuthRequest, res) => {
