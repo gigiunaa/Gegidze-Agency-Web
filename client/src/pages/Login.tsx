@@ -86,7 +86,7 @@ export function LoginPage() {
           </button>
         </form>
 
-        <p className={styles.footer}>© giunn</p>
+        <p className={styles.footer}>© Gegidze</p>
       </div>
     </div>
   );
