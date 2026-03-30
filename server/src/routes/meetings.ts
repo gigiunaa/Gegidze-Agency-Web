@@ -57,6 +57,22 @@ export function createMeetingsRouter(db: DatabaseService): Router {
     res.json(meeting);
   });
 
+  router.patch('/:id/status', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.id as string);
+    if (!meeting) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+    if (req.userRole !== 'admin' && meeting.userId !== req.userId) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ error: 'Status required' });
+    }
+    await db.updateMeetingStatus(req.params.id as string, status);
+    return res.json({ ok: true });
+  });
+
   router.delete('/:id', async (req: AuthRequest, res) => {
     const meeting = await db.getMeeting(req.params.id as string);
     if (!meeting || meeting.userId !== req.userId) {

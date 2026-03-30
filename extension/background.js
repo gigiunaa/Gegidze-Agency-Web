@@ -109,8 +109,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     case 'STOP_RECORDING': {
-      if (recordingTabId) {
-        chrome.tabs.sendMessage(recordingTabId, { type: 'STOP_RECORDING' }).catch(() => {});
+      const stoppedTabId = recordingTabId;
+      const stoppedMeetingId = recordingMeetingId;
+
+      if (stoppedTabId) {
+        chrome.tabs.sendMessage(stoppedTabId, { type: 'STOP_RECORDING' }).catch(() => {});
       }
 
       recordingTabId = null;
@@ -122,6 +125,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
       } else {
         chrome.action.setBadgeText({ text: '' });
+      }
+
+      // Update meeting status on server
+      if (stoppedMeetingId) {
+        getAuthToken().then(async (token) => {
+          if (!token) return;
+          try {
+            await fetch(`${API_BASE}/meetings/${stoppedMeetingId}/status`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ status: 'processing' }),
+            });
+          } catch (e) {
+            console.error('[Gegidze] Failed to update meeting status:', e);
+          }
+        });
       }
 
       sendResponse({ ok: true });
