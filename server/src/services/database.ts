@@ -31,7 +31,7 @@ export class DatabaseService {
   private async queryWithRetry(sql: string, params?: unknown[], retries = 3): Promise<any> {
     for (let i = 0; i < retries; i++) {
       try {
-        return await this.queryWithRetry(sql, params);
+        return await this.pool.query(sql, params);
       } catch (err: any) {
         const isTimeout = err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'EPIPE';
         if (isTimeout && i < retries - 1) {
