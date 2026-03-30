@@ -106,10 +106,12 @@ app.get('/api/debug', async (_req, res) => {
       error: m.errorMessage,
       created: m.createdAt,
     }));
+    const users = await db.getUsers();
     res.json({
       hasOpenAIKey: !!config.openaiApiKey,
       openAIKeyPrefix: config.openaiApiKey ? config.openaiApiKey.substring(0, 7) + '...' : 'NOT SET',
       uploadsDir: config.uploadsDir,
+      users: users.map(u => ({ email: u.email, name: u.name, role: u.role })),
       recentMeetings: recent,
     });
   } catch (err: any) {
