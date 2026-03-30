@@ -2,10 +2,14 @@
 // Handles microphone recording and Zoho lead linking
 
 let mediaRecorder = null;
+let speakerRecorder = null;
 let chunks = [];
+let speakerChunks = [];
 let currentMeetingId = null;
 let timerInterval = null;
 let recordingStartTime = null;
+let micStream = null;
+let speakerStream = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
@@ -13,7 +17,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       showCallBanner(msg.platform);
       break;
     case 'START_RECORDING':
-      startRecording(msg.meetingId);
+      startRecording(msg.meetingId, msg.tabStreamId);
       break;
     case 'STOP_RECORDING':
       stopRecording();
@@ -22,47 +26,90 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ── Recording ─────────────────────────────────────────────────────────────
-async function startRecording(meetingId) {
+async function startRecording(meetingId, tabStreamId) {
   try {
     currentMeetingId = meetingId;
     chunks = [];
+    speakerChunks = [];
 
-    const stream = await navigator.mediaDevices.getUserMedia({
+    // 1. Record microphone (user's voice)
+    micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         sampleRate: 48000,
       },
     });
+    console.log('[Gegidze] Mic stream obtained');
 
-    console.log('[Gegidze] Mic stream obtained, tracks:', stream.getAudioTracks().length);
-
-    mediaRecorder = new MediaRecorder(stream, {
+    mediaRecorder = new MediaRecorder(micStream, {
       mimeType: 'audio/webm;codecs=opus',
     });
-
     mediaRecorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      console.log(`[Gegidze] Recording complete: ${chunks.length} chunks, ${blob.size} bytes`);
+    // 2. Record tab audio (other participants) if available
+    if (tabStreamId) {
+      try {
+        speakerStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'tab',
+              chromeMediaSourceId: tabStreamId,
+            },
+          },
+        });
+        console.log('[Gegidze] Tab audio stream obtained');
 
-      const arrayBuffer = await blob.arrayBuffer();
+        speakerRecorder = new MediaRecorder(speakerStream, {
+          mimeType: 'audio/webm;codecs=opus',
+        });
+        speakerRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) speakerChunks.push(e.data);
+        };
+        speakerRecorder.start(1000);
+      } catch (tabErr) {
+        console.warn('[Gegidze] Tab audio capture failed:', tabErr.message);
+        speakerRecorder = null;
+        speakerStream = null;
+      }
+    }
+
+    // When mic recording stops, upload both tracks
+    mediaRecorder.onstop = async () => {
+      // Stop speaker recorder too
+      if (speakerRecorder && speakerRecorder.state !== 'inactive') {
+        speakerRecorder.stop();
+        // Wait a bit for final chunks
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      const micBlob = new Blob(chunks, { type: 'audio/webm' });
+      const speakerBlob = speakerChunks.length > 0 ? new Blob(speakerChunks, { type: 'audio/webm' }) : null;
+
+      console.log(`[Gegidze] Mic: ${micBlob.size} bytes, Speaker: ${speakerBlob?.size || 0} bytes`);
+
+      const micArray = Array.from(new Uint8Array(await micBlob.arrayBuffer()));
+      const speakerArray = speakerBlob ? Array.from(new Uint8Array(await speakerBlob.arrayBuffer())) : null;
       const savedMeetingId = currentMeetingId;
 
       chrome.runtime.sendMessage({
         type: 'UPLOAD_AUDIO',
-        audioData: Array.from(new Uint8Array(arrayBuffer)),
+        audioData: micArray,
+        speakerData: speakerArray,
         meetingId: savedMeetingId,
       });
 
-      stream.getTracks().forEach(t => t.stop());
+      // Cleanup streams
+      micStream?.getTracks().forEach(t => t.stop());
+      speakerStream?.getTracks().forEach(t => t.stop());
       chunks = [];
+      speakerChunks = [];
+      micStream = null;
+      speakerStream = null;
       currentMeetingId = null;
 
-      // Show Zoho lead search panel instead of simple notice
       showZohoPanel(savedMeetingId);
     };
 

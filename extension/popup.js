@@ -71,15 +71,26 @@ recordBtn.addEventListener('click', async () => {
   mainError.textContent = '';
   const state = await sendMessage({ type: 'GET_STATE' });
 
+  // Try active call tab first, then fall back to current active tab
+  let tabId;
   if (state?.activeCalls?.length > 0) {
-    const call = state.activeCalls[0];
-    const result = await sendMessage({ type: 'START_RECORDING', tabId: call.tabId });
+    tabId = state.activeCalls[0].tabId;
+  } else {
+    // Get the current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    tabId = tab?.id;
+  }
 
-    if (result?.error) {
-      mainError.textContent = result.error;
-    } else {
-      refreshState();
-    }
+  if (!tabId) {
+    mainError.textContent = 'No active tab found';
+    return;
+  }
+
+  const result = await sendMessage({ type: 'START_RECORDING', tabId });
+  if (result?.error) {
+    mainError.textContent = result.error;
+  } else {
+    refreshState();
   }
 });
 
@@ -95,16 +106,17 @@ async function refreshState() {
 
   const hasActiveCalls = state.activeCalls && state.activeCalls.length > 0;
 
+  // Always enable record button
+  recordBtn.disabled = false;
+
   if (hasActiveCalls) {
     const call = state.activeCalls[0];
     callStatus.classList.remove('hidden');
     noCallStatus.classList.add('hidden');
     callPlatform.textContent = `${call.platform} call active`;
-    recordBtn.disabled = false;
   } else {
     callStatus.classList.add('hidden');
     noCallStatus.classList.remove('hidden');
-    recordBtn.disabled = true;
   }
 
   if (state.isRecording) {

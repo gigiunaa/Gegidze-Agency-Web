@@ -88,6 +88,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             console.warn('[Gegidze] Content script injection:', injectErr.message);
           }
 
+          // Get tab audio stream ID for capturing other participants
+          let tabStreamId = null;
+          try {
+            tabStreamId = await new Promise((resolve, reject) => {
+              chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (streamId) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(streamId);
+                }
+              });
+            });
+          } catch (tabErr) {
+            console.warn('[Gegidze] Tab capture not available:', tabErr.message);
+          }
+
           const meeting = await apiRequest('/meetings', 'POST', {
             title: `${callInfo.platform} Call — ${new Date().toLocaleString()}`,
             startTime: new Date().toISOString(),
@@ -101,10 +117,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           recordingMeetingId = meeting.id;
           recordingStartTime = Date.now();
 
-          // Tell content script to start recording mic
+          // Tell content script to start recording mic + tab audio
           chrome.tabs.sendMessage(tabId, {
             type: 'START_RECORDING',
             meetingId: meeting.id,
+            tabStreamId: tabStreamId,
           });
 
           chrome.action.setBadgeText({ text: 'REC' });
@@ -161,7 +178,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     case 'UPLOAD_AUDIO': {
-      handleUpload(msg.audioData, msg.meetingId).then(() => {
+      handleUpload(msg.audioData, msg.speakerData, msg.meetingId).then(() => {
         sendResponse({ ok: true });
       }).catch(e => {
         sendResponse({ error: e.message });
@@ -228,16 +245,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ── Upload ────────────────────────────────────────────────────────────────
-async function handleUpload(audioData, meetingId) {
+async function handleUpload(audioData, speakerData, meetingId) {
   const token = await getAuthToken();
   if (!token || !meetingId) throw new Error('Not authenticated');
 
-  const blob = new Blob([new Uint8Array(audioData)], { type: 'audio/webm' });
-  console.log(`[Gegidze] Uploading ${blob.size} bytes for meeting ${meetingId}`);
+  const micBlob = new Blob([new Uint8Array(audioData)], { type: 'audio/webm' });
+  console.log(`[Gegidze] Uploading mic: ${micBlob.size} bytes for meeting ${meetingId}`);
 
   const formData = new FormData();
   formData.append('meetingId', meetingId);
-  formData.append('mic', blob, 'recording.webm');
+  formData.append('mic', micBlob, 'recording.webm');
+
+  if (speakerData) {
+    const speakerBlob = new Blob([new Uint8Array(speakerData)], { type: 'audio/webm' });
+    formData.append('speaker', speakerBlob, 'speaker.webm');
+    console.log(`[Gegidze] Also uploading speaker: ${speakerBlob.size} bytes`);
+  }
 
   const res = await fetch(`${API_BASE}/recordings/upload`, {
     method: 'POST',
