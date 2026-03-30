@@ -78,6 +78,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return;
         }
         try {
+          // Inject content script if not already present
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId },
+              files: ['content.js'],
+            });
+          } catch (injectErr) {
+            console.warn('[Gegidze] Content script injection:', injectErr.message);
+          }
+
           const meeting = await apiRequest('/meetings', 'POST', {
             title: `${callInfo.platform} Call — ${new Date().toLocaleString()}`,
             startTime: new Date().toISOString(),

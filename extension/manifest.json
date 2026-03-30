@@ -6,13 +6,11 @@
   "permissions": [
     "activeTab",
     "storage",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
-    "https://meet.google.com/*",
-    "https://*.zoom.us/*",
-    "https://*.zoho.com/*",
-    "http://localhost:3001/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
@@ -36,8 +34,8 @@
         "https://meet.google.com/*",
         "https://*.zoom.us/wc/*",
         "https://*.zoom.us/j/*",
-        "https://*.zoho.com/telephony/*",
-        "https://*.zoho.com/meeting/*"
+        "https://*.zoho.com/*",
+        "https://*.zoho.eu/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
