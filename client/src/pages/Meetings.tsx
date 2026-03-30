@@ -213,31 +213,50 @@ export function MeetingsPage() {
           description="Try adjusting your search or filter."
         />
       ) : showFolders ? (
-        grouped.map(([userName, userMeetings]) => (
-          <div key={userName} className={styles.folderSection}>
-            <div
-              className={styles.folderHeader}
-              onClick={() => toggleFolder(userName)}
-            >
-              <span
-                className={`${styles.folderIcon} ${openFolders.has(userName) ? styles.folderIconOpen : ''}`}
+        grouped.map(([userName, userMeetings]) => {
+          const initials = userName
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+          const completedCount = userMeetings.filter((m) => m.status === 'completed').length;
+          return (
+            <div key={userName} className={styles.folderSection}>
+              <div
+                className={styles.folderHeader}
+                onClick={() => toggleFolder(userName)}
               >
-                ▶
-              </span>
-              <span className={styles.folderName}>{userName}</span>
-              <span className={styles.folderCount}>
-                {userMeetings.length} meeting{userMeetings.length !== 1 ? 's' : ''}
-              </span>
+                <div className={styles.folderAvatar}>{initials}</div>
+                <div className={styles.folderInfo}>
+                  <span className={styles.folderName}>{userName}</span>
+                  <span className={styles.folderMeta}>
+                    {completedCount} completed, {userMeetings.length - completedCount} other
+                  </span>
+                </div>
+                <div className={styles.folderRight}>
+                  <span className={styles.folderCount}>
+                    {userMeetings.length}
+                  </span>
+                  <span
+                    className={`${styles.folderChevron} ${openFolders.has(userName) ? styles.folderChevronOpen : ''}`}
+                  >
+                    ▶
+                  </span>
+                </div>
+              </div>
+              {openFolders.has(userName) && (
+                <div className={styles.folderContent}>
+                  <DataTable<Meeting>
+                    columns={columns}
+                    data={userMeetings as (Meeting & Record<string, unknown>)[]}
+                    onRowClick={(row) => navigate(`/meetings/${row.id}`)}
+                  />
+                </div>
+              )}
             </div>
-            {openFolders.has(userName) && (
-              <DataTable<Meeting>
-                columns={columns}
-                data={userMeetings as (Meeting & Record<string, unknown>)[]}
-                onRowClick={(row) => navigate(`/meetings/${row.id}`)}
-              />
-            )}
-          </div>
-        ))
+          );
+        }))
       ) : (
         <DataTable<Meeting>
           columns={columns}

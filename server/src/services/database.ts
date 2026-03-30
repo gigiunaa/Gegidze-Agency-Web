@@ -173,6 +173,10 @@ export class DatabaseService {
     return (await this.getMeeting(id))!;
   }
 
+  async updateMeetingTitle(id: string, title: string): Promise<void> {
+    await this.queryWithRetry('UPDATE meetings SET title = $1, updated_at = NOW() WHERE id = $2', [title, id]);
+  }
+
   async deleteMeeting(id: string): Promise<void> {
     await this.queryWithRetry('DELETE FROM meetings WHERE id = $1', [id]);
   }

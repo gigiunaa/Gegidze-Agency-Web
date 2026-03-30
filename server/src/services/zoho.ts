@@ -107,6 +107,29 @@ export class ZohoService {
     return res.json();
   }
 
+  // ── Get Lead/Contact Info ──────────────────────────────────────────
+  async getRecordName(recordId: string): Promise<string | null> {
+    // Try Lead first
+    try {
+      const data = await this.api(`/Leads/${recordId}`);
+      const record = data.data?.[0];
+      if (record) {
+        return record.First_Name || record.Full_Name || record.Last_Name || null;
+      }
+    } catch { /* not a lead */ }
+
+    // Try Contact
+    try {
+      const data = await this.api(`/Contacts/${recordId}`);
+      const record = data.data?.[0];
+      if (record) {
+        return record.First_Name || record.Full_Name || record.Last_Name || null;
+      }
+    } catch { /* not a contact */ }
+
+    return null;
+  }
+
   // ── Search Leads + Contacts ─────────────────────────────────────────
   async searchLeads(query: string): Promise<ZohoRecord[]> {
     const mapRecords = (data: any): ZohoRecord[] =>

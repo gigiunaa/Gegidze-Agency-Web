@@ -69,6 +69,17 @@ export function createZohoRouter(db: DatabaseService): Router {
 
       await db.setMeetingZohoLead(meetingId, leadId);
 
+      // Update meeting title with lead's first name
+      try {
+        const leadName = await zoho.getRecordName(leadId);
+        if (leadName) {
+          const date = new Date(meeting.startTime).toLocaleDateString();
+          await db.updateMeetingTitle(meetingId, `${leadName} — ${date}`);
+        }
+      } catch (err) {
+        console.error('Failed to update meeting title from Zoho:', err);
+      }
+
       return res.json({
         ok: true,
         lead: result.lead,
