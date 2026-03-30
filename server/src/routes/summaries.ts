@@ -12,7 +12,7 @@ export function createSummariesRouter(db: DatabaseService): Router {
     if (!meeting) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
-    if (req.userRole !== 'admin' && meeting.userId !== req.userId) {
+    if (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
     const summary = await db.getSummary(req.params.meetingId as string);

@@ -6,14 +6,8 @@ export function createMeetingsRouter(db: DatabaseService): Router {
   const router = Router();
 
   router.get('/', async (req: AuthRequest, res) => {
-    if (req.userRole === 'admin') {
+    if (req.userRole === 'admin' || req.userRole === 'manager') {
       return res.json(await db.getAllMeetings());
-    }
-    if (req.userRole === 'manager') {
-      const teamId = await db.getUserTeamId(req.userId!);
-      if (teamId) {
-        return res.json(await db.getMeetingsForTeam(teamId));
-      }
     }
     return res.json(await db.getMeetings(req.userId!));
   });
@@ -24,18 +18,8 @@ export function createMeetingsRouter(db: DatabaseService): Router {
       return res.status(404).json({ error: 'Meeting not found' });
     }
 
-    if (req.userRole === 'admin') {
+    if (req.userRole === 'admin' || req.userRole === 'manager') {
       return res.json(meeting);
-    }
-
-    if (req.userRole === 'manager') {
-      const teamId = await db.getUserTeamId(req.userId!);
-      if (teamId) {
-        const meetingOwnerTeamId = await db.getUserTeamId(meeting.userId);
-        if (meetingOwnerTeamId === teamId) {
-          return res.json(meeting);
-        }
-      }
     }
 
     if (meeting.userId !== req.userId) {
@@ -62,7 +46,7 @@ export function createMeetingsRouter(db: DatabaseService): Router {
     if (!meeting) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
-    if (req.userRole !== 'admin' && meeting.userId !== req.userId) {
+    if (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
     const { status } = req.body;
@@ -78,7 +62,7 @@ export function createMeetingsRouter(db: DatabaseService): Router {
     if (!meeting) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
-    if (req.userRole !== 'admin' && meeting.userId !== req.userId) {
+    if (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
     await db.deleteMeeting(req.params.id as string);

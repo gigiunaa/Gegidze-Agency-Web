@@ -11,7 +11,7 @@ export function createTranscriptionsRouter(db: DatabaseService): Router {
       return res.status(404).json({ error: 'Meeting not found' });
     }
     // Admin can view any, others only their own
-    if (req.userRole !== 'admin' && meeting.userId !== req.userId) {
+    if (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId) {
       return res.status(404).json({ error: 'Meeting not found' });
     }
     const transcription = await db.getTranscription(req.params.meetingId as string);
