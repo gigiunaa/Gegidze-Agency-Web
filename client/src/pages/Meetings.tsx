@@ -213,7 +213,7 @@ export function MeetingsPage() {
           description="Try adjusting your search or filter."
         />
       ) : showFolders ? (
-        grouped.map(([userName, userMeetings]) => {
+        <>{grouped.map(([userName, userMeetings]) => {
           const initials = userName
             .split(' ')
             .map((n) => n[0])
@@ -256,7 +256,7 @@ export function MeetingsPage() {
               )}
             </div>
           );
-        }))
+        })}</>
       ) : (
         <DataTable<Meeting>
           columns={columns}
