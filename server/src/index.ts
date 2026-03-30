@@ -86,8 +86,13 @@ app.use('/api/admin', authMiddleware, createAdminRouter(db));
 app.use('/api/zoho', authMiddleware, createZohoRouter(db));
 
 // Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await db.testConnection();
+    res.json({ status: 'ok', db: 'connected', time: new Date().toISOString() });
+  } catch (err: any) {
+    res.json({ status: 'ok', db: 'error', dbError: err.message, code: err.code, time: new Date().toISOString() });
+  }
 });
 
 // Serve client static files in production

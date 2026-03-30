@@ -357,6 +357,11 @@ export class DatabaseService {
     return res.rows.map(this.rowToMeeting);
   }
 
+  async testConnection(): Promise<void> {
+    const res = await this.pool.query('SELECT 1 as ok');
+    if (!res.rows[0]) throw new Error('No response from DB');
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
