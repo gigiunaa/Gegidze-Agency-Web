@@ -95,6 +95,18 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+// Delete user by email (temporary admin tool)
+app.delete('/api/debug/user/:email', async (req, res) => {
+  try {
+    const user = await db.getUserByEmail(req.params.email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    await db.deleteUser(user.id);
+    res.json({ ok: true, deleted: req.params.email });
+  } catch (err: any) {
+    res.json({ error: err.message });
+  }
+});
+
 // Debug endpoint (temporary)
 app.get('/api/debug', async (_req, res) => {
   try {
