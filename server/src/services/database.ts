@@ -7,16 +7,12 @@ export class DatabaseService {
   private pool: Pool;
 
   constructor() {
-    // Use Session Pooler (port 5432) instead of Transaction Pooler (port 6543) for reliability
-    let connStr = config.databaseUrl;
-    if (connStr.includes(':6543/')) {
-      connStr = connStr.replace(':6543/', ':5432/');
-      console.log('Switched from Transaction Pooler (6543) to Session Pooler (5432)');
-    }
+    const connStr = config.databaseUrl;
+    const needsSsl = connStr.includes('supabase.com') || connStr.includes('neon.tech');
 
     this.pool = new Pool({
       connectionString: connStr,
-      ssl: { rejectUnauthorized: false },
+      ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : {}),
       max: 5,
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 30000,
