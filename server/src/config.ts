@@ -40,6 +40,8 @@ export const config = {
   zohoClientId: process.env.ZOHO_CLIENT_ID || '',
   zohoClientSecret: process.env.ZOHO_CLIENT_SECRET || '',
   zohoRefreshToken: process.env.ZOHO_REFRESH_TOKEN || '',
+  clickupApiToken: process.env.CLICKUP_API_TOKEN || '',
+  clickupListId: process.env.CLICKUP_LIST_ID || '901522584165',
   // On Railway, use persistent volume at /data; locally use server/uploads and server/data
   uploadsDir: process.env.RAILWAY_VOLUME_MOUNT_PATH
     ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')

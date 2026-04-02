@@ -70,9 +70,18 @@ export class DatabaseService {
       status TEXT NOT NULL DEFAULT 'scheduled',
       error_message TEXT,
       zoho_lead_id TEXT,
+      clickup_task_url TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+
+    // Add clickup_task_url column if it doesn't exist (migration for existing DBs)
+    await this.queryWithRetry(`
+      DO $$ BEGIN
+        ALTER TABLE meetings ADD COLUMN IF NOT EXISTS clickup_task_url TEXT;
+      EXCEPTION WHEN others THEN NULL;
+      END $$
+    `);
 
     await this.queryWithRetry(`CREATE TABLE IF NOT EXISTS recordings (
       id TEXT PRIMARY KEY,
@@ -179,6 +188,10 @@ export class DatabaseService {
 
   async setMeetingZohoLead(meetingId: string, zohoLeadId: string): Promise<void> {
     await this.queryWithRetry('UPDATE meetings SET zoho_lead_id = $1 WHERE id = $2', [zohoLeadId, meetingId]);
+  }
+
+  async setMeetingClickUpUrl(meetingId: string, url: string): Promise<void> {
+    await this.queryWithRetry('UPDATE meetings SET clickup_task_url = $1 WHERE id = $2', [url, meetingId]);
   }
 
   async getMeetingZohoLead(meetingId: string): Promise<string | null> {
@@ -378,6 +391,7 @@ export class DatabaseService {
       participants: typeof row.participants === 'string' ? JSON.parse(row.participants) : row.participants,
       status: row.status as Meeting['status'],
       errorMessage: (row.error_message as string) ?? undefined,
+      clickupTaskUrl: (row.clickup_task_url as string) ?? undefined,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     };

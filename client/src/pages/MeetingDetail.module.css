@@ -238,6 +238,28 @@
   font-size: 13px;
 }
 
+/* ─── ClickUp link ──────────────────────────────────────────────── */
+.clickupLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(123, 108, 246, 0.08), rgba(123, 108, 246, 0.03));
+  border: 1px solid rgba(123, 108, 246, 0.2);
+  border-radius: var(--radius-sm, 8px);
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.clickupLink:hover {
+  background: linear-gradient(135deg, rgba(123, 108, 246, 0.15), rgba(123, 108, 246, 0.06));
+  border-color: rgba(123, 108, 246, 0.35);
+}
+
 /* ─── Zoho CRM ──────────────────────────────────────────────────── */
 .zohoSection {
   background: var(--color-bg-secondary);

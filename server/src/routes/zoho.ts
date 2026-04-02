@@ -58,6 +58,8 @@ export function createZohoRouter(db: DatabaseService): Router {
         summary.actionItems.length > 0 ? `Action Items:\n${summary.actionItems.map(a => `• ${a.description}${a.assignee ? ` — ${a.assignee}` : ''}${a.dueDate ? ` (due: ${a.dueDate})` : ''}`).join('\n')}` : '',
         '',
         summary.decisions.length > 0 ? `Decisions:\n${summary.decisions.map(d => `• ${d}`).join('\n')}` : '',
+        '',
+        meeting.clickupTaskUrl ? `🎧 Recording: ${meeting.clickupTaskUrl}` : '',
       ].filter(Boolean).join('\n');
 
       const result = await zoho.pushSummary(

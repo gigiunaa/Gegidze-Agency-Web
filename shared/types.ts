@@ -24,6 +24,7 @@ export interface Meeting {
   participants: string[];
   status: MeetingStatus;
   errorMessage?: string;
+  clickupTaskUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

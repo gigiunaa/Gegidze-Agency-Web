@@ -19,6 +19,7 @@ const db = new DatabaseService();
 // Middleware — CORS
 const ALLOWED_ORIGINS = [
   'https://gegidze-agency-web-production.up.railway.app',
+  'https://app.gegidze.com',
 ];
 if (process.env.RAILWAY_PUBLIC_DOMAIN) {
   ALLOWED_ORIGINS.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
@@ -92,42 +93,6 @@ app.get('/api/health', async (_req, res) => {
     res.json({ status: 'ok', db: 'connected', time: new Date().toISOString() });
   } catch (err: any) {
     res.json({ status: 'ok', db: 'error', dbError: err.message, code: err.code, time: new Date().toISOString() });
-  }
-});
-
-// Delete user by email (temporary admin tool)
-app.delete('/api/debug/user/:email', async (req, res) => {
-  try {
-    const user = await db.getUserByEmail(req.params.email);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    await db.deleteUser(user.id);
-    res.json({ ok: true, deleted: req.params.email });
-  } catch (err: any) {
-    res.json({ error: err.message });
-  }
-});
-
-// Debug endpoint (temporary)
-app.get('/api/debug', async (_req, res) => {
-  try {
-    const meetings = await db.getAllMeetings();
-    const recent = meetings.slice(0, 5).map(m => ({
-      id: m.id,
-      title: m.title,
-      status: m.status,
-      error: m.errorMessage,
-      created: m.createdAt,
-    }));
-    const users = await db.getUsers();
-    res.json({
-      hasOpenAIKey: !!config.openaiApiKey,
-      openAIKeyPrefix: config.openaiApiKey ? config.openaiApiKey.substring(0, 7) + '...' : 'NOT SET',
-      uploadsDir: config.uploadsDir,
-      users: users.map(u => ({ email: u.email, name: u.name, role: u.role })),
-      recentMeetings: recent,
-    });
-  } catch (err: any) {
-    res.json({ error: err.message });
   }
 });
 

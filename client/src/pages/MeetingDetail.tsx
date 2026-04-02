@@ -52,6 +52,18 @@ export function MeetingDetailPage() {
         )}
       </div>
 
+      {/* ClickUp recording link */}
+      {meeting.clickupTaskUrl && (
+        <a
+          href={meeting.clickupTaskUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.clickupLink}
+        >
+          ClickUp Recording
+        </a>
+      )}
+
       {/* Zoho CRM Link */}
       {summary && <ZohoSection meetingId={id!} />}
 

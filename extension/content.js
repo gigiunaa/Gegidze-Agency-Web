@@ -54,10 +54,8 @@ async function startRecording(meetingId, tabStreamId) {
       try {
         speakerStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            mandatory: {
-              chromeMediaSource: 'tab',
-              chromeMediaSourceId: tabStreamId,
-            },
+            chromeMediaSource: 'tab',
+            chromeMediaSourceId: tabStreamId,
           },
         });
         console.log('[Gegidze] Tab audio stream obtained');
