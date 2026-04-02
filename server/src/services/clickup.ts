@@ -31,22 +31,24 @@ export class ClickUpService {
 
   // ── Create a task in the configured list ──────────────────────────
   async createTask(name: string, description: string): Promise<ClickUpTask> {
+    console.log(`ClickUp: creating task in list ${this.listId}...`);
     const res = await fetch(`${this.baseUrl}/list/${this.listId}/task`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
         name,
         description,
-        status: 'to do',
       }),
     });
 
+    const text = await res.text();
+    console.log(`ClickUp create response: ${res.status} — ${text.substring(0, 500)}`);
+
     if (!res.ok) {
-      const text = await res.text();
       throw new Error(`ClickUp create task error: ${res.status} — ${text}`);
     }
 
-    const data = await res.json() as { id: string; name: string; url: string };
+    const data = JSON.parse(text) as { id: string; name: string; url: string };
     console.log(`ClickUp task created: ${data.id} — ${data.url}`);
     return { id: data.id, name: data.name, url: data.url };
   }
