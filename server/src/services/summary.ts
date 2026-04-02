@@ -32,26 +32,30 @@ export class SummaryService {
 
     const response = await client.chat.completions.create({
       model: 'gpt-4o',
-      max_tokens: 4096,
+      max_tokens: 8192,
       response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
-          content: 'You are a meeting assistant. Summarize ONLY what is actually said in the transcript. Do NOT invent, assume, or hallucinate any information that is not explicitly present in the transcript. If the transcript is too short or unclear to generate a meaningful summary, return minimal results. Always respond with valid JSON.',
+          content: 'You are a detailed meeting analyst. Your job is to create comprehensive summaries so that someone who was NOT on the call can fully understand everything that was discussed. Summarize ONLY what is actually said in the transcript. Do NOT invent or hallucinate any information. Be thorough — cover every topic, question, concern, and response. Always respond with valid JSON.',
         },
         {
           role: 'user',
-          content: `Analyze the following meeting transcript and provide a structured summary based ONLY on what was actually said. Do not make up any information.
+          content: `Analyze the following meeting transcript and provide a comprehensive, detailed summary based ONLY on what was actually said. A team member who was not on this call should be able to read your summary and understand everything that happened.
 
 Return your response as JSON with the following structure:
 {
-  "overview": "A 2-3 sentence overview of what was actually discussed",
-  "keyPoints": ["Key point 1", "Key point 2", ...],
-  "actionItems": [{"description": "Task description", "assignee": "Person name or null", "dueDate": "Date or null"}],
-  "decisions": ["Decision 1", "Decision 2", ...]
+  "overview": "A detailed overview covering all main topics discussed, who said what, and the overall flow of the conversation. Be thorough — write as many sentences as needed to capture the full picture.",
+  "keyPoints": ["Detailed key point 1", "Detailed key point 2", ...],
+  "actionItems": [{"description": "Specific task description with full context", "assignee": "Person name or null", "dueDate": "Date or null"}],
+  "decisions": ["Decision 1 with context of why it was made", "Decision 2", ...]
 }
 
-If there are no action items or decisions, return empty arrays.
+Guidelines:
+- Overview should be detailed enough to replace listening to the call
+- Key points should capture every important topic, not just the top 3
+- Include who proposed what, who agreed/disagreed, and any concerns raised
+- If there are no action items or decisions, return empty arrays
 
 Transcript:
 ${transcription.fullText}`,
