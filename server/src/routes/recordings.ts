@@ -129,7 +129,9 @@ export function createRecordingsRouter(db: DatabaseService): Router {
             // Build summary text for ClickUp task description
             const summary = await db.getSummary(meetingId);
             const updatedMeeting = await db.getMeeting(meetingId);
-            const title = updatedMeeting?.title || meeting.title;
+            const rawTitle = updatedMeeting?.title || meeting.title;
+            const date = new Date(meeting.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const title = rawTitle.includes('Unknown Call') ? `Meeting Recording — ${date}` : rawTitle;
             const summaryText = summary
               ? [
                   summary.overview,

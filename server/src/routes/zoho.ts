@@ -59,14 +59,14 @@ export function createZohoRouter(db: DatabaseService): Router {
         '',
         summary.decisions.length > 0 ? `Decisions:\n${summary.decisions.map(d => `• ${d}`).join('\n')}` : '',
         '',
-        meeting.clickupTaskUrl ? `🎧 Recording: ${meeting.clickupTaskUrl}` : '',
+        meeting.clickupTaskUrl ? `[Recording] ${meeting.clickupTaskUrl}` : '',
       ].filter(Boolean).join('\n');
 
       const result = await zoho.pushSummary(
         leadId,
         summaryText,
         meeting.title,
-        new Date(meeting.startTime).toLocaleString(),
+        new Date(meeting.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       );
 
       await db.setMeetingZohoLead(meetingId, leadId);

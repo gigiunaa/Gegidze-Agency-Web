@@ -273,7 +273,7 @@ export class ZohoService {
 
   // ── Push Summary to Lead/Contact + Deals ──────────────────────────
   async pushSummary(recordId: string, summary: string, meetingTitle: string, date: string): Promise<{ lead: boolean; deals: string[] }> {
-    const formattedSummary = `📞 ${meetingTitle}\n📅 ${date}\n\n${summary}`;
+    const formattedSummary = `[Meeting] ${meetingTitle}\n[Date] ${date}\n\n${summary}`;
 
     // Try updating as Lead first, then as Contact
     let updated = false;
