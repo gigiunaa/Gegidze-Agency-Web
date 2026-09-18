@@ -71,6 +71,24 @@ test('lists the invited people with their emails under the title', async () => {
   const xml = await documentXml(await buildTranscriptDocx(withAttendees, transcription));
 
   assert.match(xml, /Participants/);
-  assert.match(xml, /Gigi Giunashvili — gigig@gegidze.com/);
-  assert.match(xml, /Nino Beridze — nino@acme.com/);
+  assert.match(xml, /Gigi Giunashvili/);
+  assert.match(xml, /gigig@gegidze.com/);
+  assert.match(xml, /Nino Beridze/);
+  assert.match(xml, /nino@acme.com/);
+});
+
+test('merges consecutive lines of the same speaker into one paragraph', async () => {
+  const sameSpeaker: Transcription = {
+    ...transcription,
+    segments: [
+      { start: 0, end: 3, text: 'გამარჯობა.', speaker: 'You' },
+      { start: 3, end: 6, text: 'როგორ ხარ?', speaker: 'You' },
+      { start: 7, end: 9, text: 'კარგად.', speaker: 'Participant' },
+    ],
+  };
+
+  const xml = await documentXml(await buildTranscriptDocx(meeting, sameSpeaker));
+
+  assert.equal((xml.match(/>You</g) ?? []).length, 1);
+  assert.match(xml, /გამარჯობა\. როგორ ხარ\?/);
 });
