@@ -76,23 +76,38 @@ function captionsRegion() {
     || document.querySelector('div[role="region"][aria-label="Captions"]');
 }
 
-// Every caption block carries the speaker's avatar, then their name, then the spoken text.
-// The blocks sit several levels below the region, so the avatars are what we look for.
+// A caption block holds the speaker's name and then what they said. Meet's markup changes over
+// time, so two ways of finding the blocks are tried before giving up.
+function blockFrom(element, nameEl, textEl) {
+  if (!element || !nameEl || !textEl || nameEl === textEl) return null;
+  const name = nameEl.textContent?.trim();
+  const text = textEl.textContent?.trim();
+  if (!name || !text || name === text || name.length > 60) return null;
+  return { element, name, text };
+}
+
 function readCaptionBlocks() {
   const region = captionsRegion();
   if (!region) return [];
-  const blocks = [];
+
+  // Preferred: each block starts with the speaker's avatar
+  const byAvatar = [];
   for (const avatar of region.querySelectorAll('img')) {
-    const block = avatar.parentElement;
-    const nameEl = avatar.nextElementSibling;
-    const textEl = block?.lastElementChild;
-    if (!block || !nameEl || !textEl || nameEl === textEl) continue;
-    const name = nameEl.textContent?.trim();
-    const text = textEl.textContent?.trim();
-    if (!name || !text) continue;
-    blocks.push({ element: block, name, text });
+    const block = blockFrom(avatar.parentElement, avatar.nextElementSibling, avatar.parentElement?.lastElementChild);
+    if (block) byAvatar.push(block);
   }
-  return blocks;
+  if (byAvatar.length > 0) return byAvatar;
+
+  // Otherwise: any element whose last two children are the name and the spoken text
+  const candidates = [];
+  for (const el of region.querySelectorAll('div')) {
+    if (el.children.length < 2) continue;
+    const textEl = el.lastElementChild;
+    const block = blockFrom(el, textEl.previousElementSibling, textEl);
+    if (block) candidates.push(block);
+  }
+  // Keep the innermost matches, so an outer wrapper does not swallow several speakers
+  return candidates.filter(c => !candidates.some(other => other !== c && c.element.contains(other.element)));
 }
 
 function pollCaptions() {
@@ -130,11 +145,10 @@ function pollCaptions() {
 function hideMeetCaptions(hidden) {
   const region = captionsRegion();
   if (!region) return;
-  // Moved out of sight rather than removed, so Meet keeps writing captions into it
+  // Only made see-through: collapsing or moving it stops Meet from drawing the captions we read.
+  // The space Meet reserves at the bottom is its own layout decision and cannot be taken back here.
   region.style.opacity = hidden ? '0' : '';
   region.style.pointerEvents = hidden ? 'none' : '';
-  region.style.transform = hidden ? 'translateY(300vh)' : '';
-  region.style.maxHeight = hidden ? '0px' : '';
 }
 
 function renderLiveCaptions(blocks) {
@@ -173,6 +187,10 @@ function stopCaptionTracking() {
   activeCaptionBlocks.clear();
   const intervals = captionIntervals.filter(c => c.end > c.start);
   console.log(`[Gegidze] Captions: ${intervals.length} speaker intervals, ${new Set(intervals.map(c => c.name)).size} people`);
+  if (intervals.length === 0) {
+    const region = captionsRegion();
+    console.warn('[Gegidze] No speaker names were read. Captions region:', region ? region.innerHTML.slice(0, 1500) : 'not found');
+  }
   return intervals;
 }
 
