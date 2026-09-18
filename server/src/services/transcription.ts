@@ -1,9 +1,10 @@
 import fs from 'fs';
+import path from 'path';
 import type { TranscriptSegment } from '../../../shared/types';
 import type { DatabaseService } from './database';
 import { config } from '../config';
 import { transcribeWithGemini, type TranscriptResult } from './gemini';
-import { splitAudio, removeChunks } from './audio-chunks';
+import { splitAudio, removeChunks, isSilent } from './audio-chunks';
 import { transcriptSimilarity, assignSpeakers } from './transcript-utils';
 
 // Each track is transcribed in 10-minute pieces
@@ -90,6 +91,11 @@ export class TranscriptionService {
     try {
       const results: TranscriptResult[] = [];
       for (const [index, chunk] of chunks.entries()) {
+        // Silence would only tempt the model to invent a conversation
+        if (await isSilent(chunk)) {
+          console.log(`Chunk ${index + 1}/${chunks.length} of ${path.basename(filePath)} is silent — skipped`);
+          continue;
+        }
         results.push(await transcribeWithGemini(chunk, {
           apiKey: config.geminiApiKey,
           model: config.transcriptionModel,

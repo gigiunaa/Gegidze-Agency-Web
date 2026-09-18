@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
-import { splitAudio } from './audio-chunks';
+import { splitAudio, isSilent } from './audio-chunks';
 
 // 25 seconds of generated tone as a webm/opus file, like the extension records
 function tempRecording(): string {
@@ -35,4 +35,25 @@ test('falls back to the whole recording when ffmpeg is not available', async () 
   const chunks = await splitAudio(recording, 10, 'ffmpeg-that-does-not-exist');
 
   assert.deepEqual(chunks, [recording]);
+});
+
+// ── isSilent ────────────────────────────────────────────────────────────────
+
+function tempGenerated(source: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'silence-test-'));
+  const filePath = path.join(dir, 'track.webm');
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', source, '-c:a', 'libopus', '-y', filePath]);
+  return filePath;
+}
+
+test('recognises a silent track', async () => {
+  assert.equal(await isSilent(tempGenerated('anullsrc=r=48000:cl=mono:d=10')), true);
+});
+
+test('recognises a track with sound', async () => {
+  assert.equal(await isSilent(tempGenerated('sine=frequency=440:duration=10')), false);
+});
+
+test('assumes sound when ffmpeg is not available', async () => {
+  assert.equal(await isSilent(tempGenerated('anullsrc=r=48000:cl=mono:d=3'), 'ffmpeg-that-does-not-exist'), false);
 });

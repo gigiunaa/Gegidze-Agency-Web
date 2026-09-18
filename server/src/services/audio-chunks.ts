@@ -39,3 +39,27 @@ export async function splitAudio(filePath: string, chunkSeconds: number, ffmpegP
 export function removeChunks(filePath: string): void {
   fs.rmSync(`${filePath}-chunks`, { recursive: true, force: true });
 }
+
+// Quieter than this on average = nobody spoke (room noise sits around -60 dB, speech around -20 to -35 dB)
+const SILENCE_MEAN_DB = -50;
+// ...unless something loud happened at some point (a short remark in a long, otherwise quiet chunk)
+const SILENCE_PEAK_DB = -35;
+
+// True when the file holds no audible sound. Transcribing silence invites the model to make speech up,
+// so silent tracks and chunks are skipped. Unknown (no ffmpeg) counts as sound.
+export async function isSilent(filePath: string, ffmpegPath = DEFAULT_FFMPEG): Promise<boolean> {
+  try {
+    const { stderr } = await execFileAsync(ffmpegPath, ['-i', filePath, '-af', 'volumedetect', '-f', 'null', '-']);
+    const level = (name: string): number | null => {
+      const m = stderr.match(new RegExp(`${name}:\\s*(-?[\\d.]+|-inf)\\s*dB`));
+      return !m ? null : m[1] === '-inf' ? -Infinity : Number(m[1]);
+    };
+    const mean = level('mean_volume');
+    const peak = level('max_volume');
+    if (mean === null || peak === null) return false;
+    return mean < SILENCE_MEAN_DB && peak < SILENCE_PEAK_DB;
+  } catch (err) {
+    console.warn(`Could not measure volume with ffmpeg — assuming sound: ${err instanceof Error ? err.message : err}`);
+    return false;
+  }
+}
