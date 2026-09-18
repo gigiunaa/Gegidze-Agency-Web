@@ -135,6 +135,55 @@ function stopCaptionTracking() {
   return intervals;
 }
 
+// ── Chat notice ───────────────────────────────────────────────────────────
+const CHAT_NOTICE = 'Hi everyone, this is an automated message: Gegidze Recorder is transcribing this meeting for me so I can give my full attention to you.';
+
+function symbolButton(iconText) {
+  const icon = Array.from(document.querySelectorAll('.google-symbols')).find(i => i.textContent.trim() === iconText);
+  return icon?.closest('button') || null;
+}
+
+function waitFor(check, timeoutMs) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+      const found = check();
+      if (found || Date.now() - started > timeoutMs) { clearInterval(timer); resolve(found || null); }
+    }, 200);
+  });
+}
+
+// Let the other participants know the call is being transcribed: open Meet's chat, send the notice, close it
+async function postChatNotice() {
+  try {
+    const chatButton = symbolButton('chat');
+    if (!chatButton) return console.warn('[Gegidze] Chat button not found');
+    chatButton.click();
+
+    const input = await waitFor(() => Array.from(document.querySelectorAll('textarea')).find(t => t.offsetParent !== null), 5000);
+    if (!input) return console.warn('[Gegidze] Chat input not found');
+
+    input.focus();
+    // Meet's input is framework-controlled: set the value through the native setter so it notices the change
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, CHAT_NOTICE);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+
+    const sendButton = symbolButton('send');
+    if (sendButton && !sendButton.disabled) {
+      sendButton.click();
+    } else {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    }
+    console.log('[Gegidze] Chat notice sent');
+
+    await new Promise(r => setTimeout(r, 800));
+    symbolButton('chat')?.click();
+  } catch (err) {
+    console.warn('[Gegidze] Chat notice failed:', err.message);
+  }
+}
+
 // ── Recording ─────────────────────────────────────────────────────────────
 async function startRecording(meetingId, tabStreamId) {
   try {
@@ -255,6 +304,7 @@ async function startRecording(meetingId, tabStreamId) {
     removeBanner();
     showRecordingIndicator();
     startCaptionTracking();
+    setTimeout(postChatNotice, 1500);
   } catch (err) {
     console.error('[Gegidze] Recording failed:', err);
     alert('Gegidze: Microphone access denied. Please allow microphone access and try again.');
