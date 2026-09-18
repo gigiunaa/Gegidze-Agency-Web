@@ -358,30 +358,30 @@ function showCallBanner(platform) {
   banner.innerHTML = `
     <div style="
       position: fixed; top: 20px; right: 20px; z-index: 999999;
-      background: linear-gradient(135deg, #1a1a2e, #12121f);
+      background: #ffffff;
       border: 1px solid #7b6cf6; border-radius: 14px;
-      padding: 20px 24px; color: #e8e6f0;
+      padding: 20px 24px; color: #141428;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 14px; min-width: 280px;
-      box-shadow: 0 8px 32px rgba(123, 108, 246, 0.35);
+      box-shadow: 0 8px 32px rgba(123, 108, 246, 0.2);
       animation: gegidze-in 0.35s ease-out;
     ">
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
         <span style="font-size: 22px;">🎙️</span>
         <div>
           <div style="font-weight: 700; font-size: 15px;">Gegidze Recorder</div>
-          <div style="color: #8b89a0; font-size: 12px; margin-top: 2px;">${platform} call detected</div>
+          <div style="color: #555570; font-size: 12px; margin-top: 2px;">${platform} call detected</div>
         </div>
         <button id="gegidze-close" style="
           margin-left: auto; background: none; border: none;
-          color: #8b89a0; cursor: pointer; font-size: 16px;
+          color: #555570; cursor: pointer; font-size: 16px;
         ">✕</button>
       </div>
       <button id="gegidze-start" style="
         width: 100%; padding: 10px 14px; background: #7b6cf6; border: none; border-radius: 8px;
         color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
       ">Start recording</button>
-      <p id="gegidze-banner-hint" style="color: #8b89a0; font-size: 12px; line-height: 1.5; margin: 10px 0 0;">
+      <p id="gegidze-banner-hint" style="color: #555570; font-size: 12px; line-height: 1.5; margin: 10px 0 0;">
         Or click the Gegidze extension icon → Record.
       </p>
     </div>
@@ -423,8 +423,8 @@ function showRecordingIndicator() {
   el.innerHTML = `
     <div style="
       position: fixed; top: 16px; right: 16px; z-index: 999999;
-      background: linear-gradient(135deg, #1a1215, #12121f);
-      border: 1px solid #3e2a2a; border-radius: 10px;
+      background: #fff5f5;
+      border: 1px solid #f5c2c2; border-radius: 10px;
       padding: 10px 16px; color: #ef4444;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 13px; display: flex; align-items: center; gap: 8px;
@@ -433,17 +433,17 @@ function showRecordingIndicator() {
     ">
       <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:gegidze-pulse 1s infinite;"></span>
       <span style="font-weight: 600;">Recording</span>
-      <span id="gegidze-timer" style="font-variant-numeric:tabular-nums;color:#c4c2d0;">00:00</span>
+      <span id="gegidze-timer" style="font-variant-numeric:tabular-nums;color:#555570;">00:00</span>
       <button id="gegidze-stop" style="
-        background:#2e1a1a;border:1px solid #3e2a2a;border-radius:6px;
+        background:#fdecec;border:1px solid #f5c2c2;border-radius:6px;
         color:#ef4444;padding:4px 10px;margin-left:6px;font-size:12px;
         font-weight:600;cursor:pointer;
       ">Stop</button>
     </div>
     <div id="gegidze-live" style="
       position: fixed; top: 64px; right: 16px; z-index: 999999; width: 360px; max-height: 40vh; overflow: hidden;
-      background: rgba(18, 18, 31, 0.92); border: 1px solid #2a2a3e; border-radius: 10px;
-      padding: 10px 14px; color: #e8e6f0; display: none;
+      background: rgba(255, 255, 255, 0.96); border: 1px solid #e4e4ed; border-radius: 10px;
+      padding: 10px 14px; color: #141428; display: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5;
     "></div>
     <style>
@@ -483,10 +483,10 @@ function showNotification(text, type) {
   div.id = 'gegidze-notification';
   div.style.cssText = `
     position: fixed; bottom: 24px; right: 24px; z-index: 9999999;
-    background: #1a1a2e; border: 1px solid ${color}; border-radius: 12px;
+    background: #ffffff; border: 1px solid ${color}; border-radius: 12px;
     padding: 14px 20px; color: ${color}; font-size: 13px; font-weight: 600;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     animation: gegidze-in 0.3s ease-out;
   `;
   div.textContent = text;

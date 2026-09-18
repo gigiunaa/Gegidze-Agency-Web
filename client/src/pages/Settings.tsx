@@ -19,7 +19,7 @@ export function SettingsPage() {
 
   function handleThemeChange(theme: string) {
     handleUpdate({ theme });
-    document.documentElement.className = theme === 'system' ? 'dark' : theme;
+    document.documentElement.className = theme === 'system' ? 'light' : theme;
   }
 
   return (
@@ -37,7 +37,7 @@ export function SettingsPage() {
             {['dark', 'light', 'system'].map((t) => (
               <button
                 key={t}
-                className={`${styles.themeBtn} ${(settings.theme || 'dark') === t ? styles.themeActive : ''}`}
+                className={`${styles.themeBtn} ${(settings.theme || 'light') === t ? styles.themeActive : ''}`}
                 onClick={() => handleThemeChange(t)}
               >
                 {t === 'dark' ? 'Dark' : t === 'light' ? 'Light' : 'System'}

@@ -1,4 +1,4 @@
-/* ─── CSS Variables (Dark Mode Default) ──────────────────────────── */
+/* ─── CSS Variables (base; dark only with :root.dark) ──────────────────────────── */
 :root {
   --color-bg-primary: #0a0a14;
   --color-bg-secondary: #12121f;
@@ -78,8 +78,8 @@
   --z-notification: 1200;
 }
 
-/* ─── Light Mode ─────────────────────────────────────────────────── */
-:root.light {
+/* ─── Light Mode (default) ─────────────────────────────────────────────────── */
+:root:not(.dark) {
   --color-bg-primary: #f8f8fc;
   --color-bg-secondary: #ffffff;
   --color-bg-tertiary: #f0f0f7;

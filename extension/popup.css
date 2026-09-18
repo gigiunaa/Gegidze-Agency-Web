@@ -7,8 +7,8 @@
 body {
   width: 320px;
   font-family: 'Segoe UI', -apple-system, sans-serif;
-  background: #0a0a14;
-  color: #e8e6f0;
+  background: #f8f8fc;
+  color: #141428;
 }
 
 .view { padding: 24px; }
@@ -31,7 +31,7 @@ h1 {
 }
 
 .subtitle {
-  color: #8b89a0;
+  color: #555570;
   font-size: 13px;
   margin-bottom: 20px;
 }
@@ -44,11 +44,11 @@ h1 {
 
 input[type="email"],
 input[type="password"] {
-  background: #12121f;
-  border: 1px solid #2a2a3e;
+  background: #ffffff;
+  border: 1px solid #e4e4ed;
   border-radius: 8px;
   padding: 10px 14px;
-  color: #e8e6f0;
+  color: #141428;
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
@@ -86,12 +86,12 @@ input:focus {
 .btn-primary:hover { background: #6a5be0; }
 
 .btn-record {
-  background: #1a2e1a;
+  background: #e6f7ef;
   color: #34d399;
   width: 100%;
-  border: 1px solid #2a3e2a;
+  border: 1px solid #b7ebd0;
 }
-.btn-record:hover:not(:disabled) { background: #1f3a1f; }
+.btn-record:hover:not(:disabled) { background: #d9f2e6; }
 .btn-record:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -103,22 +103,22 @@ input:focus {
 }
 
 .btn-stop {
-  background: #2e1a1a;
+  background: #fdecec;
   color: #ef4444;
   width: 100%;
-  border: 1px solid #3e2a2a;
+  border: 1px solid #f5c2c2;
 }
-.btn-stop:hover { background: #3a1f1f; }
+.btn-stop:hover { background: #fbdada; }
 
 .btn-icon {
   background: none;
   border: none;
-  color: #8b89a0;
+  color: #555570;
   cursor: pointer;
   font-size: 16px;
   padding: 4px;
 }
-.btn-icon:hover { color: #e8e6f0; }
+.btn-icon:hover { color: #141428; }
 
 /* ── Header ───────────────────────────────────────── */
 .header {
@@ -139,8 +139,8 @@ input:focus {
 
 /* ── Status ───────────────────────────────────────── */
 .status-card {
-  background: #12121f;
-  border: 1px solid #2a2a3e;
+  background: #ffffff;
+  border: 1px solid #e4e4ed;
   border-radius: 10px;
   padding: 12px 16px;
   margin-bottom: 16px;
@@ -151,7 +151,7 @@ input:focus {
 }
 
 .status-card.idle {
-  color: #8b89a0;
+  color: #555570;
 }
 
 .status-dot {
@@ -179,8 +179,8 @@ input:focus {
   gap: 12px;
   margin-bottom: 12px;
   padding: 16px;
-  background: #1a1215;
-  border: 1px solid #3e2a2a;
+  background: #fff5f5;
+  border: 1px solid #f5c2c2;
   border-radius: 10px;
 }
 
@@ -201,7 +201,7 @@ input:focus {
 
 /* ── Settings ─────────────────────────────────────── */
 .settings {
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid #e4e4ed;
   padding-top: 14px;
 }
 
@@ -224,7 +224,7 @@ input:focus {
 .toggle-slider {
   width: 38px;
   height: 20px;
-  background: #2a2a3e;
+  background: #e4e4ed;
   border-radius: 10px;
   position: relative;
   transition: background 0.2s;
@@ -237,7 +237,7 @@ input:focus {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #8b89a0;
+  background: #555570;
   top: 2px;
   left: 2px;
   transition: all 0.2s;
@@ -256,8 +256,8 @@ input:focus {
 .upload-status {
   margin-top: 12px;
   padding: 10px 14px;
-  background: #1a2e1a;
-  border: 1px solid #2a3e2a;
+  background: #e6f7ef;
+  border: 1px solid #b7ebd0;
   border-radius: 8px;
   color: #34d399;
   font-size: 12px;
