@@ -100,7 +100,10 @@ async function startRecording(meetingId, tabStreamId) {
         speakerData: speakerArray,
         meetingId: savedMeetingId,
       }, (response) => {
-        if (response?.error) {
+        if (chrome.runtime.lastError || !response) {
+          // Background worker gave no answer — the upload may not have happened
+          showNotification(`Gegidze: Upload not confirmed — ${chrome.runtime.lastError?.message || 'no response'}. Check the dashboard.`, 'error');
+        } else if (response.error) {
           showNotification(`Gegidze: Upload failed — ${response.error}`, 'error');
         } else {
           showNotification('Gegidze: Recording uploaded. Transcript is being created.', 'success');

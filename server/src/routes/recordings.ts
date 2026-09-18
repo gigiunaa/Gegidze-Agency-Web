@@ -58,6 +58,7 @@ export function createRecordingsRouter(db: DatabaseService): Router {
 
       const micFile = files.mic[0];
       const speakerFile = files.speaker?.[0];
+      console.log(`Upload received for meeting ${meetingId}: mic ${micFile.size} bytes, speaker ${speakerFile?.size ?? 0} bytes`);
 
       const recording = await db.createRecording({
         meetingId,
