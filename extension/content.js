@@ -214,6 +214,44 @@ async function postChatNotice() {
   }
 }
 
+// ── CRM notice ────────────────────────────────────────────────────────────
+// Shortly after recording starts, tell the user which people on this call are already in Zoho
+function showCrmNotice(meetingId) {
+  chrome.runtime.sendMessage({ type: 'ZOHO_LOOKUP', meetingId }, (response) => {
+    if (chrome.runtime.lastError || !response || response.error) return;
+    const matches = response.matches || [];
+    if (matches.length === 0) return;
+
+    const box = document.createElement('div');
+    box.id = 'gegidze-crm';
+    box.style.cssText = `
+      position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+      z-index: 9999999; max-width: 520px;
+      background: #ffffff; border: 1px solid #e4e4ed; border-left: 4px solid #7b6cf6;
+      border-radius: 10px; padding: 12px 18px; color: #141428;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px; line-height: 1.5; box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+      animation: gegidze-in 0.3s ease-out;
+    `;
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:700;color:#7b6cf6;margin-bottom:4px;';
+    title.textContent = 'Zoho CRM';
+    box.appendChild(title);
+    for (const m of matches) {
+      const line = document.createElement('div');
+      line.textContent = `✓ ${m.name} (${m.module === 'Leads' ? 'Lead' : 'Contact'}) — ${m.email}`;
+      box.appendChild(line);
+    }
+    document.body.appendChild(box);
+
+    setTimeout(() => {
+      box.style.transition = 'opacity 0.4s';
+      box.style.opacity = '0';
+      setTimeout(() => box.remove(), 400);
+    }, 8000);
+  });
+}
+
 // ── Recording ─────────────────────────────────────────────────────────────
 async function startRecording(meetingId, tabStreamId) {
   try {
@@ -335,6 +373,7 @@ async function startRecording(meetingId, tabStreamId) {
     showRecordingIndicator();
     startCaptionTracking();
     setTimeout(postChatNotice, 1500);
+    setTimeout(() => showCrmNotice(meetingId), 4000);
   } catch (err) {
     console.error('[Gegidze] Recording failed:', err);
     alert('Gegidze: Microphone access denied. Please allow microphone access and try again.');

@@ -1,12 +1,40 @@
 import { Router } from 'express';
 import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
-import { ZohoService } from '../services/zoho';
+import { ZohoService, attendeeEmails } from '../services/zoho';
 import { attachTranscriptToZoho } from '../services/zoho-attach';
+import { enrichMeetingFromCalendar } from '../services/calendar-enrichment';
 
 export function createZohoRouter(db: DatabaseService): Router {
   const router = Router();
   const zoho = new ZohoService();
+
+  // Who on this call is already in the CRM — asked by the extension while recording
+  router.get('/lookup/:meetingId', async (req: AuthRequest, res) => {
+    let meeting = await db.getMeeting(req.params.meetingId as string);
+    if (!meeting || (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId)) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+    if (!zoho.isConfigured) {
+      return res.json({ matches: [] });
+    }
+
+    try {
+      // The invite is usually read after the call; do it now so we know who is on this one
+      if (!meeting.attendees) meeting = await enrichMeetingFromCalendar(db, meeting);
+
+      const matches: { email: string; name: string; module: string }[] = [];
+      for (const email of attendeeEmails(meeting.attendees ?? [])) {
+        for (const record of await zoho.findByEmail(email)) {
+          matches.push({ email, name: record.name, module: record.module });
+        }
+      }
+      return res.json({ matches });
+    } catch (err) {
+      console.error('Zoho lookup error:', err);
+      return res.json({ matches: [] });
+    }
+  });
 
   // Attach (or re-attach) this meeting's transcript to the participants' CRM records
   router.post('/attach/:meetingId', async (req: AuthRequest, res) => {

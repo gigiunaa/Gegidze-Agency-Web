@@ -217,6 +217,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true });
       return true;
 
+    case 'ZOHO_LOOKUP': {
+      getAuthToken().then(async (token) => {
+        try {
+          const res = await fetch(`${API_BASE}/zoho/lookup/${msg.meetingId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error(`lookup failed: ${res.status}`);
+          sendResponse(await res.json());
+        } catch (e) {
+          sendResponse({ error: e.message });
+        }
+      });
+      return true;
+    }
+
     case 'GET_AUTH':
       chrome.storage.local.get(['authToken', 'userEmail'], (data) => {
         sendResponse(data);
