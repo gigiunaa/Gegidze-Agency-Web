@@ -10,9 +10,13 @@ let timerInterval = null;
 let recordingStartTime = null;
 let micStream = null;
 let speakerStream = null;
+let playbackContext = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
+    case 'PING':
+      sendResponse({ ok: true });
+      break;
     case 'CALL_DETECTED':
       showCallBanner(msg.platform);
       break;
@@ -62,6 +66,11 @@ async function startRecording(meetingId, tabStreamId) {
         });
         console.log('[Gegidze] Tab audio stream obtained');
 
+        // Capturing mutes the tab for the user — play the captured audio back so the call stays audible
+        playbackContext = new AudioContext();
+        playbackContext.createMediaStreamSource(speakerStream).connect(playbackContext.destination);
+        playbackContext.resume().catch(() => {});
+
         speakerRecorder = new MediaRecorder(speakerStream, {
           mimeType: 'audio/webm;codecs=opus',
         });
@@ -73,6 +82,8 @@ async function startRecording(meetingId, tabStreamId) {
         console.warn('[Gegidze] Tab audio capture failed:', tabErr.message);
         speakerRecorder = null;
         speakerStream = null;
+        playbackContext?.close().catch(() => {});
+        playbackContext = null;
       }
     }
 
@@ -113,6 +124,8 @@ async function startRecording(meetingId, tabStreamId) {
       // Cleanup streams
       micStream?.getTracks().forEach(t => t.stop());
       speakerStream?.getTracks().forEach(t => t.stop());
+      playbackContext?.close().catch(() => {});
+      playbackContext = null;
       chunks = [];
       speakerChunks = [];
       micStream = null;

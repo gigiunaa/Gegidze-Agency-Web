@@ -78,21 +78,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return;
         }
         try {
-          // Inject content script if not already present
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId },
-              files: ['content.js'],
-            });
-          } catch (injectErr) {
-            console.warn('[Gegidze] Content script injection:', injectErr.message);
+          // Inject content script only if it is not already running in the tab
+          // (injecting twice throws "Identifier 'mediaRecorder' has already been declared")
+          const alreadyLoaded = await chrome.tabs.sendMessage(tabId, { type: 'PING' }).then(r => !!r?.ok).catch(() => false);
+          if (!alreadyLoaded) {
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId },
+                files: ['content.js'],
+              });
+            } catch (injectErr) {
+              console.warn('[Gegidze] Content script injection:', injectErr.message);
+            }
           }
 
-          // Get tab audio stream ID for capturing other participants
+          // Get tab audio stream ID for capturing other participants.
+          // consumerTabId lets the content script in that tab consume the stream.
           let tabStreamId = null;
           try {
             tabStreamId = await new Promise((resolve, reject) => {
-              chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (streamId) => {
+              chrome.tabCapture.getMediaStreamId({ targetTabId: tabId, consumerTabId: tabId }, (streamId) => {
                 if (chrome.runtime.lastError) {
                   reject(new Error(chrome.runtime.lastError.message));
                 } else {
