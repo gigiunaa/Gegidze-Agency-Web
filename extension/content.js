@@ -154,8 +154,17 @@ function hideMeetCaptions(hidden) {
 function renderLiveCaptions(blocks) {
   const panel = document.getElementById('gegidze-live');
   if (!panel) return;
+  panel.style.display = 'block';
+
   const recent = blocks.slice(-3);
-  panel.style.display = recent.length ? 'block' : 'none';
+  if (recent.length === 0) {
+    const waiting = document.createElement('div');
+    waiting.style.cssText = 'color:#555570;';
+    waiting.textContent = 'Listening for speech…';
+    panel.replaceChildren(waiting);
+    return;
+  }
+
   panel.replaceChildren(...recent.map(({ name, text }) => {
     const line = document.createElement('div');
     line.style.marginBottom = '6px';
@@ -237,7 +246,7 @@ async function postChatNotice() {
     console.log('[Gegidze] Chat notice sent');
 
     await new Promise(r => setTimeout(r, 800));
-    symbolButton('chat')?.click();
+    chatButton.click();
   } catch (err) {
     console.warn('[Gegidze] Chat notice failed:', err.message);
   }
