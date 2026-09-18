@@ -126,6 +126,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ── Upload ────────────────────────────────────────────────────────────────
 async function handleUpload(audioData, speakerData, meetingId, tabCaptureError, captions) {
+  // The other participants were recorded outside the tab; collect that side here
+  if (!speakerData) {
+    try {
+      const result = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'OFFSCREEN_STOP' });
+      speakerData = result?.audio ?? null;
+    } catch (e) {
+      console.warn('[Gegidze] No audio from the offscreen recorder:', e.message);
+    }
+    await chrome.offscreen.closeDocument().catch(() => {});
+  }
+
   const token = await getAuthToken();
   if (!token || !meetingId) throw new Error('Not authenticated');
 
@@ -196,16 +207,19 @@ async function startRecording(tabId) {
       }
     }
 
-    // The other participants' audio. consumerTabId lets the content script use the stream.
-    let tabStreamId = null;
+    // The other participants' audio is captured in the offscreen document, which also plays it
+    // back — a captured tab goes silent for the user otherwise.
     let tabCaptureError = null;
     try {
-      tabStreamId = await new Promise((resolve, reject) => {
-        chrome.tabCapture.getMediaStreamId({ targetTabId: tabId, consumerTabId: tabId }, (streamId) => {
+      const streamId = await new Promise((resolve, reject) => {
+        chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
           if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-          else resolve(streamId);
+          else resolve(id);
         });
       });
+      await ensureOffscreen();
+      const started = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'OFFSCREEN_START', streamId });
+      if (started?.error) throw new Error(started.error);
     } catch (tabErr) {
       // Without this stream the other participants are not recorded at all, so say so loudly
       console.warn('[Gegidze] Tab capture not available:', tabErr.message);
@@ -230,7 +244,6 @@ async function startRecording(tabId) {
     chrome.tabs.sendMessage(tabId, {
       type: 'START_RECORDING',
       meetingId: meeting.id,
-      tabStreamId,
       tabCaptureError,
     });
 
@@ -304,3 +317,14 @@ chrome.storage.onChanged.addListener((changes) => {
   if (!changes.authToken) return;
   for (const tabId of activeCallTabs.keys()) refreshIconBehaviour(tabId);
 });
+
+// ── Offscreen document ────────────────────────────────────────────────────
+async function ensureOffscreen() {
+  const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+  if (existing.length > 0) return;
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['USER_MEDIA'],
+    justification: 'Record the other participants on the call',
+  });
+}

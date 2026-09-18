@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Gegidze Meeting Recorder",
-  "version": "1.1.0",
-  "description": "Auto-detect and record Google Meet, Zoom, and Zoho calls with AI transcription & summary",
+  "version": "1.2.0",
+  "description": "Record Google Meet, Zoom and Zoho calls and turn them into transcripts",
   "permissions": [
     "activeTab",
     "storage",
     "tabs",
     "scripting",
-    "tabCapture"
+    "tabCapture",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -38,7 +39,9 @@
         "https://*.zoho.com/*",
         "https://*.zoho.eu/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

@@ -2,15 +2,11 @@
 // Handles microphone + tab audio recording
 
 let mediaRecorder = null;
-let speakerRecorder = null;
 let chunks = [];
-let speakerChunks = [];
 let currentMeetingId = null;
 let timerInterval = null;
 let recordingStartTime = null;
 let micStream = null;
-let speakerStream = null;
-let playbackContext = null;
 let tabCaptureError = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -22,7 +18,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       showCallBanner(msg.platform);
       break;
     case 'START_RECORDING':
-      startRecording(msg.meetingId, msg.tabStreamId, msg.tabCaptureError);
+      startRecording(msg.meetingId, msg.tabCaptureError);
       break;
     case 'STOP_RECORDING':
       stopRecording();
@@ -300,11 +296,10 @@ function showCrmNotice(meetingId) {
 }
 
 // ── Recording ─────────────────────────────────────────────────────────────
-async function startRecording(meetingId, tabStreamId, streamIdError) {
+async function startRecording(meetingId, streamIdError) {
   try {
     currentMeetingId = meetingId;
     chunks = [];
-    speakerChunks = [];
     tabCaptureError = null;
 
     // 1. Record microphone (user's voice)
@@ -324,64 +319,23 @@ async function startRecording(meetingId, tabStreamId, streamIdError) {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    // 2. Record tab audio (other participants) if available
-    if (tabStreamId) {
-      try {
-        speakerStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            mandatory: {
-              chromeMediaSource: 'tab',
-              chromeMediaSourceId: tabStreamId,
-            },
-          },
-        });
-        console.log('[Gegidze] Tab audio stream obtained');
-
-        // Capturing mutes the tab for the user — play the captured audio back so the call stays audible
-        playbackContext = new AudioContext();
-        playbackContext.createMediaStreamSource(speakerStream).connect(playbackContext.destination);
-        playbackContext.resume().catch(() => {});
-
-        speakerRecorder = new MediaRecorder(speakerStream, {
-          mimeType: 'audio/webm;codecs=opus',
-        });
-        speakerRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) speakerChunks.push(e.data);
-        };
-        speakerRecorder.start(1000);
-      } catch (tabErr) {
-        console.warn('[Gegidze] Tab audio capture failed:', tabErr.message);
-        tabCaptureError = tabErr.message;
-        speakerRecorder = null;
-        speakerStream = null;
-        playbackContext?.close().catch(() => {});
-        playbackContext = null;
-        showNotification(`Gegidze: other participants' audio is NOT being captured — ${tabErr.message}`, 'error');
-      }
-    } else {
-      tabCaptureError = streamIdError || 'no tab stream id';
+    // The other participants are recorded outside this tab (see offscreen.js), because a tab
+    // that is being captured stops playing its sound to the user.
+    if (streamIdError) {
+      tabCaptureError = streamIdError;
       showNotification(
-        `Gegidze: ONLY YOUR VOICE is being recorded — ${tabCaptureError}. Stop, open this call tab and press Record from the Gegidze icon.`,
+        `Gegidze: ONLY YOUR VOICE is being recorded — ${streamIdError}`,
         'error',
       );
     }
 
     // When mic recording stops, upload both tracks
     mediaRecorder.onstop = async () => {
-      // Stop speaker recorder too
-      if (speakerRecorder && speakerRecorder.state !== 'inactive') {
-        speakerRecorder.stop();
-        // Wait a bit for final chunks
-        await new Promise(r => setTimeout(r, 200));
-      }
-
       const micBlob = new Blob(chunks, { type: 'audio/webm' });
-      const speakerBlob = speakerChunks.length > 0 ? new Blob(speakerChunks, { type: 'audio/webm' }) : null;
-
-      console.log(`[Gegidze] Mic: ${micBlob.size} bytes, Speaker: ${speakerBlob?.size || 0} bytes`);
+      console.log(`[Gegidze] Mic: ${micBlob.size} bytes`);
 
       const micArray = Array.from(new Uint8Array(await micBlob.arrayBuffer()));
-      const speakerArray = speakerBlob ? Array.from(new Uint8Array(await speakerBlob.arrayBuffer())) : null;
+      const speakerArray = null;
       const savedMeetingId = currentMeetingId;
       const captions = stopCaptionTracking();
 
@@ -403,15 +357,9 @@ async function startRecording(meetingId, tabStreamId, streamIdError) {
         }
       });
 
-      // Cleanup streams
       micStream?.getTracks().forEach(t => t.stop());
-      speakerStream?.getTracks().forEach(t => t.stop());
-      playbackContext?.close().catch(() => {});
-      playbackContext = null;
       chunks = [];
-      speakerChunks = [];
       micStream = null;
-      speakerStream = null;
       currentMeetingId = null;
     };
 
