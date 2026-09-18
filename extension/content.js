@@ -70,17 +70,26 @@ function turnOnCaptions() {
   }
 }
 
-// Each caption block: [avatar] [name] [text]; the text element is the last child, the name sits right before it
+function captionsRegion() {
+  // tabindex first: aria-label is translated in a non-English Meet UI
+  return document.querySelector('div[role="region"][tabindex="0"]')
+    || document.querySelector('div[role="region"][aria-label="Captions"]');
+}
+
+// Every caption block carries the speaker's avatar, then their name, then the spoken text.
+// The blocks sit several levels below the region, so the avatars are what we look for.
 function readCaptionBlocks() {
-  const region = document.querySelector('div[role="region"][tabindex="0"]');
+  const region = captionsRegion();
   if (!region) return [];
   const blocks = [];
-  for (const block of Array.from(region.children)) {
-    const textEl = block.lastElementChild;
-    const nameEl = textEl?.previousElementSibling;
-    const name = nameEl?.textContent?.trim();
-    const text = textEl?.textContent?.trim();
-    if (!name || !text || name === text) continue;
+  for (const avatar of region.querySelectorAll('img')) {
+    const block = avatar.parentElement;
+    const nameEl = avatar.nextElementSibling;
+    const textEl = block?.lastElementChild;
+    if (!block || !nameEl || !textEl || nameEl === textEl) continue;
+    const name = nameEl.textContent?.trim();
+    const text = textEl.textContent?.trim();
+    if (!name || !text) continue;
     blocks.push({ element: block, name, text });
   }
   return blocks;
@@ -119,11 +128,13 @@ function pollCaptions() {
 
 // Meet's own caption strip stays in the page (we read it) but is hidden; the text shows in our panel instead
 function hideMeetCaptions(hidden) {
-  const region = document.querySelector('div[role="region"][tabindex="0"]');
-  if (region) {
-    region.style.opacity = hidden ? '0' : '';
-    region.style.pointerEvents = hidden ? 'none' : '';
-  }
+  const region = captionsRegion();
+  if (!region) return;
+  // Moved out of sight rather than removed, so Meet keeps writing captions into it
+  region.style.opacity = hidden ? '0' : '';
+  region.style.pointerEvents = hidden ? 'none' : '';
+  region.style.transform = hidden ? 'translateY(300vh)' : '';
+  region.style.maxHeight = hidden ? '0px' : '';
 }
 
 function renderLiveCaptions(blocks) {
