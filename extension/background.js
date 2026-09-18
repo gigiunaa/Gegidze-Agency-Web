@@ -32,6 +32,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         type: 'CALL_DETECTED',
         platform: match.platform,
       }).catch(() => {});
+
+      refreshIconBehaviour(tabId);
     }
   } else {
     if (activeCallTabs.has(tabId)) {
@@ -39,6 +41,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (activeCallTabs.size === 0) {
         chrome.action.setBadgeText({ text: '' });
       }
+      refreshIconBehaviour(tabId);
     }
   }
 });
@@ -69,135 +72,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true;
 
     case 'START_RECORDING': {
-      const tabId = msg.tabId;
-      const callInfo = activeCallTabs.get(tabId) || { platform: 'Unknown' };
-
-      getAuthToken().then(async (token) => {
-        if (!token) {
-          sendResponse({ error: 'Not logged in' });
-          return;
-        }
-        try {
-          // Inject content script only if it is not already running in the tab
-          // (injecting twice throws "Identifier 'mediaRecorder' has already been declared")
-          const alreadyLoaded = await chrome.tabs.sendMessage(tabId, { type: 'PING' }).then(r => !!r?.ok).catch(() => false);
-          if (!alreadyLoaded) {
-            try {
-              await chrome.scripting.executeScript({
-                target: { tabId },
-                files: ['content.js'],
-              });
-            } catch (injectErr) {
-              console.warn('[Gegidze] Content script injection:', injectErr.message);
-            }
-          }
-
-          // Get tab audio stream ID for capturing other participants.
-          // consumerTabId lets the content script in that tab consume the stream.
-          let tabStreamId = null;
-          let tabCaptureError = null;
-          try {
-            tabStreamId = await new Promise((resolve, reject) => {
-              chrome.tabCapture.getMediaStreamId({ targetTabId: tabId, consumerTabId: tabId }, (streamId) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(streamId);
-                }
-              });
-            });
-          } catch (tabErr) {
-            // Without this stream the other participants are not recorded at all, so say so loudly
-            console.warn('[Gegidze] Tab capture not available:', tabErr.message);
-            tabCaptureError = tabErr.message;
-          }
-
-          const meeting = await apiRequest('/meetings', 'POST', {
-            title: `${callInfo.platform} Call — ${new Date().toLocaleString()}`,
-            startTime: new Date().toISOString(),
-            endTime: new Date(Date.now() + 3600000).toISOString(),
-            calendarSource: 'extension',
-            participants: [],
-            status: 'recording',
-            // Lets the server find the Calendar invite (title + invited people's emails)
-            meetUrl: callInfo.url,
-          }, token);
-
-          recordingTabId = tabId;
-          recordingMeetingId = meeting.id;
-          recordingStartTime = Date.now();
-
-          // Tell content script to start recording mic + tab audio
-          chrome.tabs.sendMessage(tabId, {
-            type: 'START_RECORDING',
-            meetingId: meeting.id,
-            tabStreamId: tabStreamId,
-            tabCaptureError,
-          });
-
-          chrome.action.setBadgeText({ text: 'REC' });
-          chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
-
-          sendResponse({ ok: true, meetingId: meeting.id });
-        } catch (e) {
-          sendResponse({ error: e.message });
-        }
-      });
-      return true;
-    }
-
-    case 'CALL_JOINED':
-    case 'OPEN_POPUP': {
-      // Open the extension popup (Chrome 127+). Recording must start from there, because tab
-      // audio capture is only allowed after the user invoked the extension.
-      const windowId = sender.tab?.windowId;
-      chrome.action.openPopup(windowId ? { windowId } : {})
-        .then(() => sendResponse({ ok: true }))
-        .catch((e) => {
-          console.warn('[Gegidze] Could not open popup:', e.message);
-          sendResponse({ error: e.message });
-        });
+      startRecording(msg.tabId).then(sendResponse);
       return true;
     }
 
     case 'STOP_RECORDING': {
-      const stoppedTabId = recordingTabId;
-      const stoppedMeetingId = recordingMeetingId;
-
-      if (stoppedTabId) {
-        chrome.tabs.sendMessage(stoppedTabId, { type: 'STOP_RECORDING' }).catch(() => {});
-      }
-
-      recordingTabId = null;
-      recordingMeetingId = null;
-      recordingStartTime = null;
-
-      if (activeCallTabs.size > 0) {
-        chrome.action.setBadgeText({ text: '●' });
-        chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
-      } else {
-        chrome.action.setBadgeText({ text: '' });
-      }
-
-      // Update meeting status on server
-      if (stoppedMeetingId) {
-        getAuthToken().then(async (token) => {
-          if (!token) return;
-          try {
-            await fetch(`${API_BASE}/meetings/${stoppedMeetingId}/status`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ status: 'processing' }),
-            });
-          } catch (e) {
-            console.error('[Gegidze] Failed to update meeting status:', e);
-          }
-        });
-      }
-
+      stopRecording();
       sendResponse({ ok: true });
       return true;
     }
@@ -295,3 +175,132 @@ async function apiRequest(path, method, body, token) {
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
+
+// ── Recording ─────────────────────────────────────────────────────────────
+// Chrome only allows capturing a tab's audio right after the user clicked the extension on that
+// tab, so recording always starts from the toolbar icon (see chrome.action.onClicked below).
+async function startRecording(tabId) {
+  const callInfo = activeCallTabs.get(tabId) || { platform: 'Unknown' };
+  const token = await getAuthToken();
+  if (!token) return { error: 'Not logged in' };
+
+  try {
+    // Inject the content script unless it is already running in the tab
+    // (injecting twice throws "Identifier 'mediaRecorder' has already been declared")
+    const alreadyLoaded = await chrome.tabs.sendMessage(tabId, { type: 'PING' }).then(r => !!r?.ok).catch(() => false);
+    if (!alreadyLoaded) {
+      try {
+        await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+      } catch (injectErr) {
+        console.warn('[Gegidze] Content script injection:', injectErr.message);
+      }
+    }
+
+    // The other participants' audio. consumerTabId lets the content script use the stream.
+    let tabStreamId = null;
+    let tabCaptureError = null;
+    try {
+      tabStreamId = await new Promise((resolve, reject) => {
+        chrome.tabCapture.getMediaStreamId({ targetTabId: tabId, consumerTabId: tabId }, (streamId) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(streamId);
+        });
+      });
+    } catch (tabErr) {
+      // Without this stream the other participants are not recorded at all, so say so loudly
+      console.warn('[Gegidze] Tab capture not available:', tabErr.message);
+      tabCaptureError = tabErr.message;
+    }
+
+    const meeting = await apiRequest('/meetings', 'POST', {
+      title: `${callInfo.platform} Call — ${new Date().toLocaleString()}`,
+      startTime: new Date().toISOString(),
+      endTime: new Date(Date.now() + 3600000).toISOString(),
+      calendarSource: 'extension',
+      participants: [],
+      status: 'recording',
+      // Lets the server find the Calendar invite (title + invited people's emails)
+      meetUrl: callInfo.url,
+    }, token);
+
+    recordingTabId = tabId;
+    recordingMeetingId = meeting.id;
+    recordingStartTime = Date.now();
+
+    chrome.tabs.sendMessage(tabId, {
+      type: 'START_RECORDING',
+      meetingId: meeting.id,
+      tabStreamId,
+      tabCaptureError,
+    });
+
+    chrome.action.setBadgeText({ text: 'REC' });
+    chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
+    return { ok: true, meetingId: meeting.id };
+  } catch (e) {
+    console.error('[Gegidze] Could not start recording:', e);
+    return { error: e.message };
+  }
+}
+
+function stopRecording() {
+  const stoppedTabId = recordingTabId;
+  const stoppedMeetingId = recordingMeetingId;
+
+  if (stoppedTabId) {
+    chrome.tabs.sendMessage(stoppedTabId, { type: 'STOP_RECORDING' }).catch(() => {});
+  }
+
+  recordingTabId = null;
+  recordingMeetingId = null;
+  recordingStartTime = null;
+
+  chrome.action.setBadgeText({ text: activeCallTabs.size > 0 ? '●' : '' });
+  chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
+
+  if (stoppedMeetingId) {
+    getAuthToken().then(async (token) => {
+      if (!token) return;
+      try {
+        await fetch(`${API_BASE}/meetings/${stoppedMeetingId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ status: 'processing' }),
+        });
+      } catch (e) {
+        console.error('[Gegidze] Failed to update meeting status:', e);
+      }
+    });
+  }
+}
+
+// ── Toolbar icon ──────────────────────────────────────────────────────────
+// On a call tab the icon has no popup, so this fires and one click records or stops.
+// Everywhere else the popup opens as usual (login, settings).
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab.id) return;
+  if (recordingTabId === tab.id) {
+    stopRecording();
+    return;
+  }
+  const result = await startRecording(tab.id);
+  if (result.error) {
+    console.warn('[Gegidze]', result.error);
+    chrome.tabs.sendMessage(tab.id, { type: 'RECORDING_ERROR', message: result.error }).catch(() => {});
+  }
+});
+
+// One click should record, so the popup is taken off call tabs once the user is signed in
+async function refreshIconBehaviour(tabId) {
+  const token = await getAuthToken();
+  const oneClick = !!token && activeCallTabs.has(tabId);
+  try {
+    await chrome.action.setPopup({ tabId, popup: oneClick ? '' : 'popup.html' });
+  } catch { /* tab already gone */ }
+}
+
+chrome.tabs.onActivated.addListener(({ tabId }) => refreshIconBehaviour(tabId));
+chrome.storage.onChanged.addListener((changes) => {
+  if (!changes.authToken) return;
+  for (const tabId of activeCallTabs.keys()) refreshIconBehaviour(tabId);
+});

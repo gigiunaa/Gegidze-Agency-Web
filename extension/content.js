@@ -27,6 +27,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case 'STOP_RECORDING':
       stopRecording();
       break;
+    case 'RECORDING_ERROR':
+      showNotification(`Gegidze: ${msg.message}`, 'error');
+      break;
   }
 });
 
@@ -43,10 +46,7 @@ setInterval(() => {
   if (inCall && !joinedNotified) {
     joinedNotified = true;
     if (mediaRecorder) return;
-    // Ask the background to open the extension popup so the user can press Record right away;
-    // the in-page banner is the fallback if the popup can't be opened.
     showCallBanner('Google Meet');
-    chrome.runtime.sendMessage({ type: 'CALL_JOINED' }, () => void chrome.runtime.lastError);
   } else if (!inCall && joinedNotified && !mediaRecorder) {
     joinedNotified = false;
   }
@@ -259,7 +259,7 @@ function showCrmNotice(meetingId) {
       box.style.transition = 'opacity 0.4s';
       box.style.opacity = '0';
       setTimeout(() => box.remove(), 400);
-    }, 8000);
+    }, 20000);
   });
 }
 
@@ -430,12 +430,8 @@ function showCallBanner(platform) {
           color: #555570; cursor: pointer; font-size: 16px;
         ">✕</button>
       </div>
-      <button id="gegidze-start" style="
-        width: 100%; padding: 10px 14px; background: #7b6cf6; border: none; border-radius: 8px;
-        color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-      ">Start recording</button>
-      <p id="gegidze-banner-hint" style="color: #555570; font-size: 12px; line-height: 1.5; margin: 10px 0 0;">
-        Or click the Gegidze extension icon → Record.
+      <p style="color: #141428; font-size: 13px; line-height: 1.6; margin: 0;">
+        Click the <strong>Gegidze icon</strong> in the toolbar to record this call.
       </p>
     </div>
     <style>
@@ -445,16 +441,6 @@ function showCallBanner(platform) {
 
   document.body.appendChild(banner);
   document.getElementById('gegidze-close')?.addEventListener('click', removeBanner);
-  // Chrome only lets us capture the call audio after the user pressed the extension itself,
-  // so this button opens the extension popup where the real Record button lives.
-  document.getElementById('gegidze-start')?.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }, (response) => {
-      if (chrome.runtime.lastError || response?.error) {
-        const hint = document.getElementById('gegidze-banner-hint');
-        if (hint) hint.innerHTML = 'Please click the <strong>Gegidze extension icon</strong> → <strong>Record</strong>.';
-      }
-    });
-  });
 }
 
 function removeBanner() {
