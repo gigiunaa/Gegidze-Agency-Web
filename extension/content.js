@@ -11,6 +11,7 @@ let recordingStartTime = null;
 let micStream = null;
 let speakerStream = null;
 let playbackContext = null;
+let tabCaptureError = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
@@ -29,12 +30,118 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// ── Call detection ────────────────────────────────────────────────────────
+// Meet shows a "call_end" (red phone) icon only while you are in the call. The icon name is
+// the same in every UI language, unlike button labels.
+function isInCall() {
+  return Array.from(document.querySelectorAll('i')).some(i => i.textContent.trim() === 'call_end');
+}
+
+let joinedNotified = false;
+setInterval(() => {
+  const inCall = isInCall();
+  if (inCall && !joinedNotified) {
+    joinedNotified = true;
+    if (mediaRecorder) return;
+    // Ask the background to open the extension popup so the user can press Record right away;
+    // the in-page banner is the fallback if the popup can't be opened.
+    showCallBanner('Google Meet');
+    chrome.runtime.sendMessage({ type: 'CALL_JOINED' }, () => void chrome.runtime.lastError);
+  } else if (!inCall && joinedNotified && !mediaRecorder) {
+    joinedNotified = false;
+  }
+}, 2000);
+
+// ── Captions: who is speaking when ────────────────────────────────────────
+// Google Meet's live captions show the speaker's name next to each caption block. While recording
+// we only keep track of WHO spoke WHEN (not Google's text); the server matches these times with
+// the Gemini transcript to put names on the transcript lines.
+let captionTimer = null;
+let captionIntervals = [];               // finalized { name, start, end } in seconds from recording start
+const activeCaptionBlocks = new Map();   // caption DOM block -> { name, text, start, end }
+
+function turnOnCaptions() {
+  // The CC button shows the "closed_caption_off" icon while captions are off (same in every UI language)
+  const icon = Array.from(document.querySelectorAll('.google-symbols')).find(i => i.textContent.trim() === 'closed_caption_off');
+  const button = icon?.closest('button');
+  if (button) {
+    button.click();
+    console.log('[Gegidze] Captions turned on');
+  }
+}
+
+// Each caption block: [avatar] [name] [text]; the text element is the last child, the name sits right before it
+function readCaptionBlocks() {
+  const region = document.querySelector('div[role="region"][tabindex="0"]');
+  if (!region) return [];
+  const blocks = [];
+  for (const block of Array.from(region.children)) {
+    const textEl = block.lastElementChild;
+    const nameEl = textEl?.previousElementSibling;
+    const name = nameEl?.textContent?.trim();
+    const text = textEl?.textContent?.trim();
+    if (!name || !text || name === text) continue;
+    blocks.push({ element: block, name, text });
+  }
+  return blocks;
+}
+
+function pollCaptions() {
+  if (!recordingStartTime) return;
+  const now = (Date.now() - recordingStartTime) / 1000;
+  const seen = new Set();
+
+  for (const { element, name, text } of readCaptionBlocks()) {
+    seen.add(element);
+    const entry = activeCaptionBlocks.get(element);
+    if (!entry) {
+      activeCaptionBlocks.set(element, { name, text, start: now, end: now });
+    } else if (entry.text !== text || entry.name !== name) {
+      // Meet keeps appending to the same block while the person talks; a much shorter text means it started over
+      if (text.length < entry.text.length - 250) {
+        captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
+        entry.start = now;
+      }
+      entry.name = name;
+      entry.text = text;
+      entry.end = now;
+    }
+  }
+
+  // Blocks that disappeared or went quiet are finished
+  for (const [element, entry] of activeCaptionBlocks) {
+    if (!seen.has(element) || now - entry.end > 8) {
+      captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
+      activeCaptionBlocks.delete(element);
+    }
+  }
+}
+
+function startCaptionTracking() {
+  captionIntervals = [];
+  activeCaptionBlocks.clear();
+  turnOnCaptions();
+  captionTimer = setInterval(pollCaptions, 500);
+}
+
+function stopCaptionTracking() {
+  if (captionTimer) { clearInterval(captionTimer); captionTimer = null; }
+  for (const entry of activeCaptionBlocks.values()) {
+    captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
+  }
+  activeCaptionBlocks.clear();
+  const intervals = captionIntervals.filter(c => c.end > c.start);
+  console.log(`[Gegidze] Captions: ${intervals.length} speaker intervals, ${new Set(intervals.map(c => c.name)).size} people`);
+  return intervals;
+}
+
 // ── Recording ─────────────────────────────────────────────────────────────
 async function startRecording(meetingId, tabStreamId) {
   try {
     currentMeetingId = meetingId;
     chunks = [];
     speakerChunks = [];
+    tabCaptureError = null;
 
     // 1. Record microphone (user's voice)
     micStream = await navigator.mediaDevices.getUserMedia({
@@ -80,11 +187,16 @@ async function startRecording(meetingId, tabStreamId) {
         speakerRecorder.start(1000);
       } catch (tabErr) {
         console.warn('[Gegidze] Tab audio capture failed:', tabErr.message);
+        tabCaptureError = tabErr.message;
         speakerRecorder = null;
         speakerStream = null;
         playbackContext?.close().catch(() => {});
         playbackContext = null;
+        showNotification(`Gegidze: other participants' audio is NOT being captured — ${tabErr.message}`, 'error');
       }
+    } else {
+      tabCaptureError = 'no tab stream id';
+      showNotification("Gegidze: other participants' audio is NOT being captured — no tab stream", 'error');
     }
 
     // When mic recording stops, upload both tracks
@@ -104,12 +216,15 @@ async function startRecording(meetingId, tabStreamId) {
       const micArray = Array.from(new Uint8Array(await micBlob.arrayBuffer()));
       const speakerArray = speakerBlob ? Array.from(new Uint8Array(await speakerBlob.arrayBuffer())) : null;
       const savedMeetingId = currentMeetingId;
+      const captions = stopCaptionTracking();
 
       chrome.runtime.sendMessage({
         type: 'UPLOAD_AUDIO',
         audioData: micArray,
         speakerData: speakerArray,
         meetingId: savedMeetingId,
+        tabCaptureError,
+        captions,
       }, (response) => {
         if (chrome.runtime.lastError || !response) {
           // Background worker gave no answer — the upload may not have happened
@@ -134,10 +249,12 @@ async function startRecording(meetingId, tabStreamId) {
     };
 
     mediaRecorder.start(1000);
+    recordingStartTime = Date.now();
     console.log('[Gegidze] Recording started for meeting', meetingId);
 
     removeBanner();
     showRecordingIndicator();
+    startCaptionTracking();
   } catch (err) {
     console.error('[Gegidze] Recording failed:', err);
     alert('Gegidze: Microphone access denied. Please allow microphone access and try again.');
@@ -180,8 +297,12 @@ function showCallBanner(platform) {
           color: #8b89a0; cursor: pointer; font-size: 16px;
         ">✕</button>
       </div>
-      <p style="color: #c4c2d0; font-size: 13px; line-height: 1.5; margin-bottom: 0;">
-        Click the <strong>Gegidze extension icon</strong> → <strong>Record</strong> to start.
+      <button id="gegidze-start" style="
+        width: 100%; padding: 10px 14px; background: #7b6cf6; border: none; border-radius: 8px;
+        color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+      ">Start recording</button>
+      <p id="gegidze-banner-hint" style="color: #8b89a0; font-size: 12px; line-height: 1.5; margin: 10px 0 0;">
+        Or click the Gegidze extension icon → Record.
       </p>
     </div>
     <style>
@@ -191,7 +312,16 @@ function showCallBanner(platform) {
 
   document.body.appendChild(banner);
   document.getElementById('gegidze-close')?.addEventListener('click', removeBanner);
-  setTimeout(removeBanner, 8000);
+  // Chrome only lets us capture the call audio after the user pressed the extension itself,
+  // so this button opens the extension popup where the real Record button lives.
+  document.getElementById('gegidze-start')?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' }, (response) => {
+      if (chrome.runtime.lastError || response?.error) {
+        const hint = document.getElementById('gegidze-banner-hint');
+        if (hint) hint.innerHTML = 'Please click the <strong>Gegidze extension icon</strong> → <strong>Record</strong>.';
+      }
+    });
+  });
 }
 
 function removeBanner() {

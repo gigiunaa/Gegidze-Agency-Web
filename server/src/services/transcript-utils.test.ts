@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { transcriptSimilarity, linesToSegments } from './transcript-utils';
+import { transcriptSimilarity, linesToSegments, assignSpeakers } from './transcript-utils';
 
 // ── transcriptSimilarity ────────────────────────────────────────────────────
 
@@ -58,4 +58,46 @@ test('keeps a line with an unreadable timestamp right after the previous line', 
     { start: 10, end: 12, text: 'კარგი.' },
     { start: 12, end: 12, text: 'დღეს.' },
   ]);
+});
+
+// ── assignSpeakers ──────────────────────────────────────────────────────────
+
+const timeline = [
+  { name: 'გიორგი', start: 0, end: 5 },
+  { name: 'ნინო', start: 5, end: 12 },
+  { name: 'გიორგი', start: 20, end: 25 },
+];
+
+test('names each segment after the person speaking at that time', () => {
+  const segments = assignSpeakers([
+    { start: 1, end: 4, text: 'გამარჯობა.' },
+    { start: 6, end: 11, text: 'კარგად, გმადლობ.' },
+    { start: 21, end: 24, text: 'დავიწყოთ.' },
+  ], timeline, 'Participant');
+
+  assert.deepEqual(segments.map(s => s.speaker), ['გიორგი', 'ნინო', 'გიორგი']);
+});
+
+test('picks the person who overlaps the segment the most', () => {
+  const segments = assignSpeakers([{ start: 4, end: 10, text: 'ეს ჩემი აზრია.' }], timeline, 'Participant');
+
+  assert.equal(segments[0].speaker, 'ნინო');
+});
+
+test('uses the nearest speaker when captions lag slightly behind the audio', () => {
+  const segments = assignSpeakers([{ start: 13, end: 14, text: 'ხო.' }], timeline, 'Participant');
+
+  assert.equal(segments[0].speaker, 'ნინო');
+});
+
+test('falls back to the default label when nobody was captioned near that time', () => {
+  const segments = assignSpeakers([{ start: 40, end: 42, text: 'ჰმ.' }], timeline, 'Participant');
+
+  assert.equal(segments[0].speaker, 'Participant');
+});
+
+test('keeps the segments unchanged apart from the speaker', () => {
+  const segments = assignSpeakers([{ start: 1, end: 4, text: 'გამარჯობა.' }], timeline, 'Participant');
+
+  assert.deepEqual(segments, [{ start: 1, end: 4, text: 'გამარჯობა.', speaker: 'გიორგი' }]);
 });

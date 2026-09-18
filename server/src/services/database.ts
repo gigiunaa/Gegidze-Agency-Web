@@ -93,6 +93,7 @@ export class DatabaseService {
       format TEXT NOT NULL DEFAULT 'webm',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+    await this.queryWithRetry(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS captions TEXT`);
 
     await this.queryWithRetry(`CREATE TABLE IF NOT EXISTS transcriptions (
       id TEXT PRIMARY KEY,
@@ -211,9 +212,9 @@ export class DatabaseService {
   async createRecording(recording: Omit<Recording, 'id' | 'createdAt'>): Promise<Recording> {
     const id = crypto.randomUUID();
     await this.queryWithRetry(`
-      INSERT INTO recordings (id, meeting_id, file_path, speaker_file_path, duration_seconds, file_size, format)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [id, recording.meetingId, recording.filePath, recording.speakerFilePath ?? null, recording.durationSeconds, recording.fileSize, recording.format]);
+      INSERT INTO recordings (id, meeting_id, file_path, speaker_file_path, duration_seconds, file_size, format, captions)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [id, recording.meetingId, recording.filePath, recording.speakerFilePath ?? null, recording.durationSeconds, recording.fileSize, recording.format, recording.captions ? JSON.stringify(recording.captions) : null]);
     return (await this.getRecording(id))!;
   }
 
@@ -236,6 +237,7 @@ export class DatabaseService {
       durationSeconds: row.duration_seconds as number,
       fileSize: row.file_size as number,
       format: row.format as Recording['format'],
+      captions: typeof row.captions === 'string' ? JSON.parse(row.captions) : undefined,
       createdAt: row.created_at as string,
     };
   }

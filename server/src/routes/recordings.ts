@@ -4,8 +4,24 @@ import path from 'path';
 import fs from 'fs';
 import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
+import type { SpeakerInterval } from '../../../shared/types';
 import { TranscriptionService } from '../services/transcription';
 import { config } from '../config';
+
+// "Who spoke when" sent by the extension as JSON; anything malformed is ignored rather than failing the upload
+function parseCaptions(raw: unknown): SpeakerInterval[] {
+  if (typeof raw !== 'string' || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((c): c is SpeakerInterval =>
+        c && typeof c.name === 'string' && c.name.trim() !== '' && Number.isFinite(c.start) && Number.isFinite(c.end) && c.end >= c.start)
+      .map(c => ({ name: c.name.trim(), start: c.start, end: c.end }));
+  } catch {
+    return [];
+  }
+}
 
 export function createRecordingsRouter(db: DatabaseService): Router {
   const router = Router();
@@ -58,7 +74,10 @@ export function createRecordingsRouter(db: DatabaseService): Router {
 
       const micFile = files.mic[0];
       const speakerFile = files.speaker?.[0];
-      console.log(`Upload received for meeting ${meetingId}: mic ${micFile.size} bytes, speaker ${speakerFile?.size ?? 0} bytes`);
+      console.log(`Upload received for meeting ${meetingId}: mic ${micFile.size} bytes, speaker ${speakerFile?.size ?? 0} bytes${req.body.tabCaptureError ? `, tab capture error: ${req.body.tabCaptureError}` : ''}`);
+
+      const captions = parseCaptions(req.body.captions);
+      console.log(`Captions timeline: ${captions.length} intervals`);
 
       const recording = await db.createRecording({
         meetingId,
@@ -67,6 +86,7 @@ export function createRecordingsRouter(db: DatabaseService): Router {
         durationSeconds: parseFloat(durationSeconds) || 0,
         fileSize: micFile.size + (speakerFile?.size || 0),
         format: 'webm',
+        captions,
       });
 
       await db.updateMeetingStatus(meetingId, 'processing');

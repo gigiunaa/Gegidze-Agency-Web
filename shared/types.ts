@@ -45,7 +45,15 @@ export interface Recording {
   durationSeconds: number;
   fileSize: number;
   format: 'webm' | 'wav' | 'mp3';
+  // Who was speaking when, read from the meeting's live captions (seconds from recording start)
+  captions?: SpeakerInterval[];
   createdAt: string;
+}
+
+export interface SpeakerInterval {
+  name: string;
+  start: number;
+  end: number;
 }
 
 // ─── Transcription ──────────────────────────────────────────────────

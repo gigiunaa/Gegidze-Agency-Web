@@ -140,6 +140,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true;
     }
 
+    case 'CALL_JOINED':
+    case 'OPEN_POPUP': {
+      // Open the extension popup (Chrome 127+). Recording must start from there, because tab
+      // audio capture is only allowed after the user invoked the extension.
+      const windowId = sender.tab?.windowId;
+      chrome.action.openPopup(windowId ? { windowId } : {})
+        .then(() => sendResponse({ ok: true }))
+        .catch((e) => {
+          console.warn('[Gegidze] Could not open popup:', e.message);
+          sendResponse({ error: e.message });
+        });
+      return true;
+    }
+
     case 'STOP_RECORDING': {
       const stoppedTabId = recordingTabId;
       const stoppedMeetingId = recordingMeetingId;
@@ -183,7 +197,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     case 'UPLOAD_AUDIO': {
-      handleUpload(msg.audioData, msg.speakerData, msg.meetingId).then(() => {
+      handleUpload(msg.audioData, msg.speakerData, msg.meetingId, msg.tabCaptureError, msg.captions).then(() => {
         sendResponse({ ok: true });
       }).catch(e => {
         sendResponse({ error: e.message });
@@ -210,7 +224,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ── Upload ────────────────────────────────────────────────────────────────
-async function handleUpload(audioData, speakerData, meetingId) {
+async function handleUpload(audioData, speakerData, meetingId, tabCaptureError, captions) {
   const token = await getAuthToken();
   if (!token || !meetingId) throw new Error('Not authenticated');
 
@@ -219,6 +233,8 @@ async function handleUpload(audioData, speakerData, meetingId) {
 
   const formData = new FormData();
   formData.append('meetingId', meetingId);
+  if (tabCaptureError) formData.append('tabCaptureError', tabCaptureError);
+  if (Array.isArray(captions) && captions.length > 0) formData.append('captions', JSON.stringify(captions));
   formData.append('mic', micBlob, 'recording.webm');
 
   if (speakerData) {

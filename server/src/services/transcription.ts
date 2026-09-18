@@ -4,10 +4,13 @@ import type { DatabaseService } from './database';
 import { config } from '../config';
 import { transcribeWithGemini, type TranscriptResult } from './gemini';
 import { splitAudio, removeChunks } from './audio-chunks';
-import { transcriptSimilarity } from './transcript-utils';
+import { transcriptSimilarity, assignSpeakers } from './transcript-utils';
 
 // Each track is transcribed in 10-minute pieces
 const CHUNK_SECONDS = 600;
+
+// How Google Meet captions label the local user, per UI language
+const LOCAL_USER_CAPTION_NAMES = new Set(['You', 'თქვენ', 'Вы']);
 
 export class TranscriptionService {
   private db: DatabaseService;
@@ -35,18 +38,21 @@ export class TranscriptionService {
       hasSpeakerTrack ? this.transcribeTrack(recording.speakerFilePath!) : Promise.resolve(null),
     ]);
 
+    // Mic track is the account owner; the other track gets names from the meeting captions
+    const meeting = await this.db.getMeeting(recording.meetingId);
+    const owner = meeting ? await this.db.getUserById(meeting.userId) : undefined;
     const micSegments: TranscriptSegment[] = micResult.segments.map(seg => ({
       ...seg,
-      speaker: 'You',
+      speaker: owner?.name || 'You',
     }));
 
     let allSegments = micSegments;
 
     if (speakerResult) {
-      const speakerSegments: TranscriptSegment[] = speakerResult.segments.map(seg => ({
-        ...seg,
-        speaker: 'Participant',
-      }));
+      // Captions label the local user as "You" (localized) — that speech is on the mic track, not this one
+      const others = (recording.captions ?? []).filter(c => !LOCAL_USER_CAPTION_NAMES.has(c.name));
+      const speakerSegments = assignSpeakers(speakerResult.segments, others, 'Participant');
+      console.log(`Speaker names from captions: ${others.length} intervals, ${new Set(others.map(c => c.name)).size} people`);
 
       // Check if speaker audio is just a duplicate of mic (user alone on call)
       // Compare texts — if >80% similar, skip speaker segments

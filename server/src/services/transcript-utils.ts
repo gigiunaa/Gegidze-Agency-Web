@@ -50,3 +50,39 @@ export function linesToSegments(lines: TimedLine[], offsetSeconds: number): Tran
 
   return segments;
 }
+
+// Who was speaking when, as observed from the meeting's captions (seconds from recording start)
+export interface SpeakerInterval {
+  name: string;
+  start: number;
+  end: number;
+}
+
+// Captions appear a little after the speech, so a segment may fall just outside its interval
+const NEAREST_SPEAKER_SECONDS = 3;
+
+// Label each segment with the captioned speaker who overlaps it most (or is nearest), else fallback
+export function assignSpeakers(segments: TranscriptSegment[], timeline: SpeakerInterval[], fallback: string): TranscriptSegment[] {
+  return segments.map(seg => {
+    let best: SpeakerInterval | null = null;
+    let bestOverlap = 0;
+    let nearest: SpeakerInterval | null = null;
+    let nearestGap = Infinity;
+
+    for (const interval of timeline) {
+      const overlap = Math.min(seg.end, interval.end) - Math.max(seg.start, interval.start);
+      if (overlap > bestOverlap) {
+        best = interval;
+        bestOverlap = overlap;
+      }
+      const gap = Math.max(interval.start - seg.end, seg.start - interval.end, 0);
+      if (gap < nearestGap) {
+        nearest = interval;
+        nearestGap = gap;
+      }
+    }
+
+    const speaker = best?.name ?? (nearest && nearestGap <= NEAREST_SPEAKER_SECONDS ? nearest.name : fallback);
+    return { ...seg, speaker };
+  });
+}
