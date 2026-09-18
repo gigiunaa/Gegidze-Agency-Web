@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Meeting, Transcription, Summary } from '../../../shared/types';
+import type { Meeting, Transcription, Summary, ZohoAttachment } from '../../../shared/types';
 import styles from './MeetingDetail.module.css';
 
 export function MeetingDetailPage() {
@@ -69,6 +69,8 @@ export function MeetingDetailPage() {
 
       {transcription && <DownloadWordButton meeting={meeting} />}
 
+      {transcription && <ZohoSection meeting={meeting} />}
+
       {notes && <NotesView notes={notes} />}
 
       <div className={styles.tabContent}>
@@ -101,6 +103,52 @@ function DownloadWordButton({ meeting }: { meeting: Meeting }) {
         {downloading ? 'Preparing...' : 'Download Word'}
       </button>
       {error && <span className={styles.errorText}>{error}</span>}
+    </div>
+  );
+}
+
+// ── Zoho CRM ──────────────────────────────────────────────────────────────
+function ZohoSection({ meeting }: { meeting: Meeting }) {
+  const [results, setResults] = useState<ZohoAttachment[] | null>(meeting.zohoAttachments ?? null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSend() {
+    setSending(true);
+    setError('');
+    try {
+      const res = await api.zoho.attach(meeting.id);
+      setResults(res.results);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const label = (r: ZohoAttachment) =>
+    r.status === 'uploaded' ? `${r.name} (${r.module}) — ${r.email}`
+      : r.status === 'not_found' ? `${r.email} — not in Zoho`
+      : `${r.email} — upload failed`;
+
+  return (
+    <div className={styles.zohoSection}>
+      <h3 className={styles.zohoTitle}>Zoho CRM</h3>
+      {results && results.length > 0 ? (
+        <ul className={styles.zohoList}>
+          {results.map((r, i) => (
+            <li key={i} className={r.status === 'uploaded' ? styles.zohoOk : styles.zohoMiss}>
+              {r.status === 'uploaded' ? '✓ ' : '· '}{label(r)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={styles.emptyText}>Not sent to Zoho yet.</p>
+      )}
+      <button className={styles.downloadBtn} onClick={handleSend} disabled={sending}>
+        {sending ? 'Sending...' : results ? 'Send again' : 'Send to Zoho'}
+      </button>
+      {error && <p className={styles.errorText}>{error}</p>}
     </div>
   );
 }

@@ -18,10 +18,47 @@ interface ZohoDeal {
   Contact_Name?: { id: string; name: string };
 }
 
+export interface ZohoRecordRef {
+  module: 'Leads' | 'Contacts';
+  id: string;
+  name: string;
+}
+
+export interface ZohoOptions {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  accountsUrl: string;
+  apiUrl: string;
+}
+
+// People from outside the organiser's own company — the ones worth looking up in the CRM
+export function externalAttendees<T extends { email: string }>(attendees: T[], organiserEmail: string): T[] {
+  const ownDomain = organiserEmail.split('@')[1]?.toLowerCase();
+  if (!ownDomain) return attendees;
+  return attendees.filter(a => a.email.split('@')[1]?.toLowerCase() !== ownDomain);
+}
+
 export class ZohoService {
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
   private tokenPromise: Promise<string> | null = null;
+  private options: ZohoOptions;
+
+  constructor(options?: Partial<ZohoOptions>) {
+    this.options = {
+      clientId: config.zohoClientId,
+      clientSecret: config.zohoClientSecret,
+      refreshToken: config.zohoRefreshToken,
+      accountsUrl: 'https://accounts.zoho.eu',
+      apiUrl: 'https://www.zohoapis.eu/crm/v2',
+      ...options,
+    };
+  }
+
+  get isConfigured(): boolean {
+    return !!(this.options.clientId && this.options.clientSecret && this.options.refreshToken);
+  }
 
   // ── OAuth Token ─────────────────────────────────────────────────────
   private async getAccessToken(): Promise<string> {
@@ -43,19 +80,19 @@ export class ZohoService {
   }
 
   private async fetchNewToken(): Promise<string> {
-    const { zohoClientId, zohoClientSecret, zohoRefreshToken } = config;
-    if (!zohoClientId || !zohoClientSecret || !zohoRefreshToken) {
+    const { clientId, clientSecret, refreshToken, accountsUrl } = this.options;
+    if (!clientId || !clientSecret || !refreshToken) {
       throw new Error('Zoho CRM credentials not configured');
     }
 
     const params = new URLSearchParams({
-      refresh_token: zohoRefreshToken,
-      client_id: zohoClientId,
-      client_secret: zohoClientSecret,
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
       grant_type: 'refresh_token',
     });
 
-    const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
+    const res = await fetch(`${accountsUrl}/oauth/v2/token`, {
       method: 'POST',
       body: params,
     });
@@ -92,7 +129,7 @@ export class ZohoService {
       options.body = JSON.stringify(body);
     }
 
-    const res = await fetch(`https://www.zohoapis.eu/crm/v2${endpoint}`, options);
+    const res = await fetch(`${this.options.apiUrl}${endpoint}`, options);
 
     // 204 = no content (empty search results)
     if (res.status === 204) {
@@ -128,6 +165,53 @@ export class ZohoService {
     } catch { /* not a contact */ }
 
     return null;
+  }
+
+  // ── Find by email ───────────────────────────────────────────────────
+  // The same person can exist as both a Lead and a Contact; every match is returned
+  async findByEmail(email: string): Promise<ZohoRecordRef[]> {
+    const found: ZohoRecordRef[] = [];
+
+    for (const module of ['Leads', 'Contacts'] as const) {
+      try {
+        const data = await this.api(`/${module}/search?email=${encodeURIComponent(email)}`);
+        for (const record of data.data ?? []) {
+          found.push({
+            module,
+            id: record.id,
+            name: record.Full_Name || [record.First_Name, record.Last_Name].filter(Boolean).join(' ') || email,
+          });
+        }
+      } catch (err) {
+        console.error(`Zoho ${module} lookup for ${email} failed:`, err instanceof Error ? err.message : err);
+      }
+    }
+
+    return found;
+  }
+
+  // ── Attachments ─────────────────────────────────────────────────────
+  async uploadAttachment(module: string, recordId: string, fileName: string, content: Buffer): Promise<void> {
+    const token = await this.getAccessToken();
+
+    const form = new FormData();
+    form.append('file', new Blob([content]), fileName);
+
+    const res = await fetch(`${this.options.apiUrl}/${module}/${recordId}/Attachments`, {
+      method: 'POST',
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      body: form,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Zoho attachment error: ${res.status} — ${await res.text()}`);
+    }
+
+    const data = await res.json() as { data?: { code?: string; message?: string }[] };
+    const result = data.data?.[0];
+    if (result?.code !== 'SUCCESS') {
+      throw new Error(`Zoho attachment rejected: ${result?.code} ${result?.message ?? ''}`);
+    }
   }
 
   // ── Search Leads + Contacts ─────────────────────────────────────────

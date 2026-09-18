@@ -62,7 +62,7 @@ function del<T>(url: string): Promise<T> {
 }
 
 // ─── API Methods ────────────────────────────────────────────────────
-import type { Meeting, Transcription, Summary, AuthResponse, User } from '../../../shared/types';
+import type { Meeting, Transcription, Summary, AuthResponse, User, ZohoAttachment } from '../../../shared/types';
 
 export const api = {
   auth: {
@@ -123,6 +123,7 @@ export const api = {
     search: (query: string) => get<any[]>(`/zoho/search?q=${encodeURIComponent(query)}`),
     getDeals: (leadId: string) => get<any[]>(`/zoho/leads/${leadId}/deals`),
     pushSummary: (meetingId: string, leadId: string) => post<{ ok: boolean; lead: boolean; dealsUpdated: string[] }>('/zoho/push-summary', { meetingId, leadId }),
+    attach: (meetingId: string) => post<{ results: ZohoAttachment[] }>(`/zoho/attach/${meetingId}`),
   },
 
   admin: {

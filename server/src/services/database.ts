@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import crypto from 'crypto';
 import { config } from '../config';
-import type { Meeting, Recording, Transcription, Summary, Attendee } from '../../../shared/types';
+import type { Meeting, Recording, Transcription, Summary, Attendee, ZohoAttachment } from '../../../shared/types';
 
 export class DatabaseService {
   private pool: Pool;
@@ -96,6 +96,7 @@ export class DatabaseService {
     await this.queryWithRetry(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS captions TEXT`);
     await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS meet_url TEXT`);
     await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS attendees TEXT`);
+    await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS zoho_attachments TEXT`);
 
     await this.queryWithRetry(`CREATE TABLE IF NOT EXISTS google_accounts (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -197,6 +198,10 @@ export class DatabaseService {
     await this.queryWithRetry(`
       UPDATE meetings SET title = COALESCE($1, title), calendar_event_id = $2, attendees = $3, updated_at = NOW() WHERE id = $4
     `, [info.title ?? null, info.calendarEventId, JSON.stringify(info.attendees), id]);
+  }
+
+  async setMeetingZohoAttachments(id: string, results: ZohoAttachment[]): Promise<void> {
+    await this.queryWithRetry('UPDATE meetings SET zoho_attachments = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(results), id]);
   }
 
   // ─── Google accounts (Calendar access) ─────────────────────────────
@@ -429,6 +434,7 @@ export class DatabaseService {
       clickupTaskUrl: (row.clickup_task_url as string) ?? undefined,
       meetUrl: (row.meet_url as string) ?? undefined,
       attendees: typeof row.attendees === 'string' ? JSON.parse(row.attendees) : undefined,
+      zohoAttachments: typeof row.zoho_attachments === 'string' ? JSON.parse(row.zoho_attachments) : undefined,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     };

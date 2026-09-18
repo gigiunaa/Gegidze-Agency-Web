@@ -29,6 +29,8 @@ export interface Meeting {
   meetUrl?: string;
   // People invited to the call, from the Google Calendar event
   attendees?: Attendee[];
+  // What happened when the transcript was attached to Zoho CRM records
+  zohoAttachments?: ZohoAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,14 @@ export interface Meeting {
 export interface Attendee {
   name: string;
   email: string;
+}
+
+export interface ZohoAttachment {
+  email: string;
+  // CRM record the file was attached to, when one was found
+  name?: string;
+  module?: string;
+  status: 'uploaded' | 'not_found' | 'failed';
 }
 
 export type MeetingStatus =

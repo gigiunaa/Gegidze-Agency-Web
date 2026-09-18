@@ -2,10 +2,31 @@ import { Router } from 'express';
 import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
 import { ZohoService } from '../services/zoho';
+import { attachTranscriptToZoho } from '../services/zoho-attach';
 
 export function createZohoRouter(db: DatabaseService): Router {
   const router = Router();
   const zoho = new ZohoService();
+
+  // Attach (or re-attach) this meeting's transcript to the participants' CRM records
+  router.post('/attach/:meetingId', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.meetingId as string);
+    if (!meeting) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+    if (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    try {
+      await attachTranscriptToZoho(db, meeting);
+      const updated = await db.getMeeting(meeting.id);
+      return res.json({ results: updated?.zohoAttachments ?? [] });
+    } catch (err) {
+      console.error('Zoho attach error:', err);
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Zoho attachment failed' });
+    }
+  });
 
   router.get('/search', async (req: AuthRequest, res) => {
     const query = req.query.q as string;

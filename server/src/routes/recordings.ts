@@ -8,6 +8,7 @@ import type { SpeakerInterval } from '../../../shared/types';
 import { TranscriptionService } from '../services/transcription';
 import { enrichMeetingFromCalendar } from '../services/calendar-enrichment';
 import { SummaryService } from '../services/summary';
+import { attachTranscriptToZoho } from '../services/zoho-attach';
 import { config } from '../config';
 
 // "Who spoke when" sent by the extension as JSON; anything malformed is ignored rather than failing the upload
@@ -105,6 +106,14 @@ export function createRecordingsRouter(db: DatabaseService): Router {
           if (trans) await summaryService.generate(trans.id);
         } catch (err) {
           console.error('Notes failed (non-fatal):', err instanceof Error ? err.message : err);
+        }
+
+        // Put the transcript on the CRM records of the people who were on the call
+        try {
+          const updated = await db.getMeeting(meetingId);
+          if (updated) await attachTranscriptToZoho(db, updated);
+        } catch (err) {
+          console.error('Zoho attachment failed (non-fatal):', err instanceof Error ? err.message : err);
         }
 
         // Clean up local files since user doesn't want them stored locally

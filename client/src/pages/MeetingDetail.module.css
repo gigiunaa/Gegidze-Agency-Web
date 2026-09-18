@@ -418,3 +418,16 @@
   font-weight: 700;
   margin: 28px 0 4px;
 }
+
+.zohoList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.zohoOk { color: var(--color-text-primary); }
+.zohoMiss { color: var(--color-text-muted); }
