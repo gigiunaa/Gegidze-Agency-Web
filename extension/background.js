@@ -95,6 +95,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           // Get tab audio stream ID for capturing other participants.
           // consumerTabId lets the content script in that tab consume the stream.
           let tabStreamId = null;
+          let tabCaptureError = null;
           try {
             tabStreamId = await new Promise((resolve, reject) => {
               chrome.tabCapture.getMediaStreamId({ targetTabId: tabId, consumerTabId: tabId }, (streamId) => {
@@ -106,7 +107,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               });
             });
           } catch (tabErr) {
+            // Without this stream the other participants are not recorded at all, so say so loudly
             console.warn('[Gegidze] Tab capture not available:', tabErr.message);
+            tabCaptureError = tabErr.message;
           }
 
           const meeting = await apiRequest('/meetings', 'POST', {
@@ -129,6 +132,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             type: 'START_RECORDING',
             meetingId: meeting.id,
             tabStreamId: tabStreamId,
+            tabCaptureError,
           });
 
           chrome.action.setBadgeText({ text: 'REC' });

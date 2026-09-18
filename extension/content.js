@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       showCallBanner(msg.platform);
       break;
     case 'START_RECORDING':
-      startRecording(msg.meetingId, msg.tabStreamId);
+      startRecording(msg.meetingId, msg.tabStreamId, msg.tabCaptureError);
       break;
     case 'STOP_RECORDING':
       stopRecording();
@@ -264,7 +264,7 @@ function showCrmNotice(meetingId) {
 }
 
 // ── Recording ─────────────────────────────────────────────────────────────
-async function startRecording(meetingId, tabStreamId) {
+async function startRecording(meetingId, tabStreamId, streamIdError) {
   try {
     currentMeetingId = meetingId;
     chunks = [];
@@ -323,8 +323,11 @@ async function startRecording(meetingId, tabStreamId) {
         showNotification(`Gegidze: other participants' audio is NOT being captured — ${tabErr.message}`, 'error');
       }
     } else {
-      tabCaptureError = 'no tab stream id';
-      showNotification("Gegidze: other participants' audio is NOT being captured — no tab stream", 'error');
+      tabCaptureError = streamIdError || 'no tab stream id';
+      showNotification(
+        `Gegidze: ONLY YOUR VOICE is being recorded — ${tabCaptureError}. Stop, open this call tab and press Record from the Gegidze icon.`,
+        'error',
+      );
     }
 
     // When mic recording stops, upload both tracks

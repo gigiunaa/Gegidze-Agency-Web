@@ -71,17 +71,22 @@ recordBtn.addEventListener('click', async () => {
   mainError.textContent = '';
   const state = await sendMessage({ type: 'GET_STATE' });
 
-  // Record the tab the user is looking at. Tab audio capture only works on the tab where the
-  // extension was invoked, so prefer the current tab; fall back to the first detected call tab.
+  // Chrome only allows capturing the audio of the tab that is in front, so the call tab has to
+  // be the active one. Recording another tab would silently lose the other participants' voices.
   const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const calls = state?.activeCalls || [];
-  const currentIsCall = calls.some(c => c.tabId === currentTab?.id);
-  const tabId = currentIsCall || calls.length === 0 ? currentTab?.id : calls[0].tabId;
 
-  if (!tabId) {
+  if (!currentTab?.id) {
     mainError.textContent = 'No active tab found';
     return;
   }
+
+  if (calls.length > 0 && !calls.some((c) => c.tabId === currentTab.id)) {
+    mainError.textContent = 'Open the call tab first, then press Record there.';
+    return;
+  }
+
+  const tabId = currentTab.id;
 
   const result = await sendMessage({ type: 'START_RECORDING', tabId });
   if (result?.error) {
