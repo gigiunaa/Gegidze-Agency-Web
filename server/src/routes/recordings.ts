@@ -6,6 +6,7 @@ import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
 import type { SpeakerInterval } from '../../../shared/types';
 import { TranscriptionService } from '../services/transcription';
+import { enrichMeetingFromCalendar } from '../services/calendar-enrichment';
 import { config } from '../config';
 
 // "Who spoke when" sent by the extension as JSON; anything malformed is ignored rather than failing the upload
@@ -91,8 +92,9 @@ export function createRecordingsRouter(db: DatabaseService): Router {
 
       await db.updateMeetingStatus(meetingId, 'processing');
 
-      // Background pipeline: transcribe → cleanup
+      // Background pipeline: calendar invite → transcribe → cleanup
       (async () => {
+        await enrichMeetingFromCalendar(db, meeting);
         await transcription.transcribe(recording.id);
 
         // Clean up local files since user doesn't want them stored locally

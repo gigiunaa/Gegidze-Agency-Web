@@ -39,7 +39,7 @@ export function createMeetingsRouter(db: DatabaseService): Router {
   });
 
   router.post('/', async (req: AuthRequest, res) => {
-    const { title, startTime, endTime, calendarSource, participants, status } = req.body;
+    const { title, startTime, endTime, calendarSource, participants, status, meetUrl } = req.body;
     const meeting = await db.createMeeting(req.userId!, {
       title: title || `Recording ${new Date().toLocaleString()}`,
       startTime: startTime || new Date().toISOString(),
@@ -47,6 +47,7 @@ export function createMeetingsRouter(db: DatabaseService): Router {
       calendarSource: calendarSource || 'manual',
       participants: participants || [],
       status: status || 'scheduled',
+      meetUrl: typeof meetUrl === 'string' && meetUrl.startsWith('https://meet.google.com/') ? meetUrl : undefined,
     });
     res.json(meeting);
   });

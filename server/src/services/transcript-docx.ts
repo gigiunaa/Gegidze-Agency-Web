@@ -22,6 +22,16 @@ export async function buildTranscriptDocx(meeting: Meeting, transcription: Trans
       }))
     : [new Paragraph({ children: [new TextRun({ text: transcription.fullText })] })];
 
+  // Invited people from the Calendar invite, when known
+  const attendees = meeting.attendees ?? [];
+  const participants = attendees.length > 0
+    ? [
+        new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: 'Participants', bold: true })] }),
+        ...attendees.map(a => new Paragraph({ children: [new TextRun({ text: `${a.name} — ${a.email}` })] })),
+        new Paragraph({ spacing: { after: 240 }, children: [] }),
+      ]
+    : [];
+
   const doc = new Document({
     creator: 'Gegidze Meeting Recorder',
     title: meeting.title,
@@ -30,6 +40,7 @@ export async function buildTranscriptDocx(meeting: Meeting, transcription: Trans
       children: [
         new Paragraph({ text: meeting.title, heading: HeadingLevel.HEADING_1 }),
         new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: date, color: '888888' })] }),
+        ...participants,
         ...lines,
       ],
     }],

@@ -58,3 +58,19 @@ test('writes every line with its time, speaker and Georgian text', async () => {
 test('names the file after the meeting, safe for a download', () => {
   assert.equal(transcriptFileName({ ...meeting, title: 'Zoom Call — 9/18/2026, 2:15:00 PM' }), 'Zoom Call - 9-18-2026, 2-15-00 PM.docx');
 });
+
+test('lists the invited people with their emails under the title', async () => {
+  const withAttendees: Meeting = {
+    ...meeting,
+    attendees: [
+      { name: 'Gigi Giunashvili', email: 'gigig@gegidze.com' },
+      { name: 'Nino Beridze', email: 'nino@acme.com' },
+    ],
+  };
+
+  const xml = await documentXml(await buildTranscriptDocx(withAttendees, transcription));
+
+  assert.match(xml, /Participants/);
+  assert.match(xml, /Gigi Giunashvili — gigig@gegidze.com/);
+  assert.match(xml, /Nino Beridze — nino@acme.com/);
+});

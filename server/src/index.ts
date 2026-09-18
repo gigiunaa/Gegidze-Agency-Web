@@ -12,6 +12,7 @@ import { createSummariesRouter } from './routes/summaries';
 import { createSettingsRouter } from './routes/settings';
 import { createAdminRouter } from './routes/admin';
 import { createZohoRouter } from './routes/zoho';
+import { createGoogleRouter } from './routes/google';
 
 const app = express();
 const db = new DatabaseService();
@@ -85,6 +86,8 @@ app.use('/api/summaries', authMiddleware, createSummariesRouter(db));
 app.use('/api/settings', authMiddleware, createSettingsRouter(db));
 app.use('/api/admin', authMiddleware, createAdminRouter(db));
 app.use('/api/zoho', authMiddleware, createZohoRouter(db));
+// Google Calendar connection (auth is per route: the OAuth callback is a plain browser redirect)
+app.use('/api/google', createGoogleRouter(db));
 
 // Health check
 app.get('/api/health', async (_req, res) => {

@@ -38,6 +38,10 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
+  // Google OAuth (Calendar access for participant emails). Redirect URI must match the OAuth client.
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || '',
   transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'gemini-3.8-flash',
   zohoClientId: process.env.ZOHO_CLIENT_ID || '',
   zohoClientSecret: process.env.ZOHO_CLIENT_SECRET || '',

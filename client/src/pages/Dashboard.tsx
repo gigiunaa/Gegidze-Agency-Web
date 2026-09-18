@@ -11,6 +11,7 @@ import {
   EmptyState,
   Skeleton,
 } from '../components/ui';
+import { GoogleCalendarCard } from '../components/GoogleCalendarCard';
 import styles from './Dashboard.module.css';
 
 export function DashboardPage() {
@@ -50,6 +51,8 @@ export function DashboardPage() {
           </div>
         }
       />
+
+      <GoogleCalendarCard />
 
       {/* Stats row */}
       <div className={styles.statsGrid}>

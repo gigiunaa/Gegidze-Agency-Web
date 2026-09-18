@@ -25,8 +25,17 @@ export interface Meeting {
   status: MeetingStatus;
   errorMessage?: string;
   clickupTaskUrl?: string;
+  // Google Meet link of the call (from the extension)
+  meetUrl?: string;
+  // People invited to the call, from the Google Calendar event
+  attendees?: Attendee[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Attendee {
+  name: string;
+  email: string;
 }
 
 export type MeetingStatus =

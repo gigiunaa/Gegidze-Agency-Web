@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import crypto from 'crypto';
 import { config } from '../config';
-import type { Meeting, Recording, Transcription, Summary } from '../../../shared/types';
+import type { Meeting, Recording, Transcription, Summary, Attendee } from '../../../shared/types';
 
 export class DatabaseService {
   private pool: Pool;
@@ -94,6 +94,15 @@ export class DatabaseService {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
     await this.queryWithRetry(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS captions TEXT`);
+    await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS meet_url TEXT`);
+    await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS attendees TEXT`);
+
+    await this.queryWithRetry(`CREATE TABLE IF NOT EXISTS google_accounts (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      refresh_token TEXT NOT NULL,
+      connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 
     await this.queryWithRetry(`CREATE TABLE IF NOT EXISTS transcriptions (
       id TEXT PRIMARY KEY,
@@ -173,14 +182,38 @@ export class DatabaseService {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await this.queryWithRetry(`
-      INSERT INTO meetings (id, user_id, title, start_time, end_time, calendar_source, calendar_event_id, participants, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    `, [id, userId, meeting.title, meeting.startTime, meeting.endTime, meeting.calendarSource, meeting.calendarEventId ?? null, JSON.stringify(meeting.participants), meeting.status, now, now]);
+      INSERT INTO meetings (id, user_id, title, start_time, end_time, calendar_source, calendar_event_id, participants, status, meet_url, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `, [id, userId, meeting.title, meeting.startTime, meeting.endTime, meeting.calendarSource, meeting.calendarEventId ?? null, JSON.stringify(meeting.participants), meeting.status, meeting.meetUrl ?? null, now, now]);
     return (await this.getMeeting(id))!;
   }
 
   async updateMeetingTitle(id: string, title: string): Promise<void> {
     await this.queryWithRetry('UPDATE meetings SET title = $1, updated_at = NOW() WHERE id = $2', [title, id]);
+  }
+
+  // What the Google Calendar invite told us about this call
+  async updateMeetingCalendarInfo(id: string, info: { title?: string; calendarEventId: string; attendees: Attendee[] }): Promise<void> {
+    await this.queryWithRetry(`
+      UPDATE meetings SET title = COALESCE($1, title), calendar_event_id = $2, attendees = $3, updated_at = NOW() WHERE id = $4
+    `, [info.title ?? null, info.calendarEventId, JSON.stringify(info.attendees), id]);
+  }
+
+  // ─── Google accounts (Calendar access) ─────────────────────────────
+  async setGoogleAccount(userId: string, email: string, refreshToken: string): Promise<void> {
+    await this.queryWithRetry(`
+      INSERT INTO google_accounts (user_id, email, refresh_token, connected_at) VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email, refresh_token = EXCLUDED.refresh_token, connected_at = NOW()
+    `, [userId, email, refreshToken]);
+  }
+
+  async getGoogleAccount(userId: string): Promise<{ email: string; refreshToken: string } | null> {
+    const res = await this.queryWithRetry('SELECT email, refresh_token FROM google_accounts WHERE user_id = $1', [userId]);
+    return res.rows[0] ? { email: res.rows[0].email, refreshToken: res.rows[0].refresh_token } : null;
+  }
+
+  async deleteGoogleAccount(userId: string): Promise<void> {
+    await this.queryWithRetry('DELETE FROM google_accounts WHERE user_id = $1', [userId]);
   }
 
   async deleteMeeting(id: string): Promise<void> {
@@ -394,6 +427,8 @@ export class DatabaseService {
       status: row.status as Meeting['status'],
       errorMessage: (row.error_message as string) ?? undefined,
       clickupTaskUrl: (row.clickup_task_url as string) ?? undefined,
+      meetUrl: (row.meet_url as string) ?? undefined,
+      attendees: typeof row.attendees === 'string' ? JSON.parse(row.attendees) : undefined,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     };

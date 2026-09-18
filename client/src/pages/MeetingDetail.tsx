@@ -39,7 +39,13 @@ export function MeetingDetailPage() {
         <span className={styles.meta}>
           {new Date(meeting.startTime).toLocaleString()} &mdash; {new Date(meeting.endTime).toLocaleTimeString()}
         </span>
-        {meeting.participants.length > 0 && (
+        {(meeting.attendees?.length ?? 0) > 0 ? (
+          <div className={styles.participants}>
+            {meeting.attendees!.map((a) => (
+              <span key={a.email} className={styles.participant} title={a.email}>{a.name} — {a.email}</span>
+            ))}
+          </div>
+        ) : meeting.participants.length > 0 && (
           <div className={styles.participants}>
             {meeting.participants.map((p, i) => (<span key={i} className={styles.participant}>{p}</span>))}
           </div>

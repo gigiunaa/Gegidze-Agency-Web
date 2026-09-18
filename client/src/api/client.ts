@@ -108,6 +108,12 @@ export const api = {
     generate: (transcriptionId: string) => post('/summaries/generate', { transcriptionId }),
   },
 
+  google: {
+    status: () => get<{ configured: boolean; connected: boolean; email: string | null }>('/google/status'),
+    connect: () => get<{ url: string }>('/google/connect'),
+    disconnect: () => post<{ ok: boolean }>('/google/disconnect'),
+  },
+
   settings: {
     get: () => get<Record<string, string>>('/settings'),
     update: (settings: Record<string, string>) => patch('/settings', settings),

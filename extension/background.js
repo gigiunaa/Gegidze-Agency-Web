@@ -116,6 +116,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             calendarSource: 'extension',
             participants: [],
             status: 'recording',
+            // Lets the server find the Calendar invite (title + invited people's emails)
+            meetUrl: callInfo.url,
           }, token);
 
           recordingTabId = tabId;
