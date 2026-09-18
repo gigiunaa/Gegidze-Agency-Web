@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import type { AddressInfo } from 'net';
-import { ZohoService, externalAttendees } from './zoho';
+import { ZohoService, attendeeEmails } from './zoho';
 
 interface Received { method: string; url: string; headers: http.IncomingHttpHeaders; body: string }
 
@@ -80,18 +80,21 @@ test('uploads a file as an attachment of the record', async () => {
   });
 });
 
-test('only people outside the company get the transcript attached', () => {
+test('looks up everyone on the call, inside the company too', () => {
   const attendees = [
     { name: 'Gigi', email: 'gigig@gegidze.com' },
-    { name: 'Keti', email: 'Keti@Gegidze.com' },
+    { name: 'Giorgi', email: 'gk@gegidze.com' },
     { name: 'Nino', email: 'nino@acme.com' },
   ];
 
-  assert.deepEqual(externalAttendees(attendees, 'gigig@gegidze.com').map(a => a.email), ['nino@acme.com']);
+  assert.deepEqual(attendeeEmails(attendees), ['gigig@gegidze.com', 'gk@gegidze.com', 'nino@acme.com']);
 });
 
-test('keeps everyone when the organiser has no company domain', () => {
-  const attendees = [{ name: 'Nino', email: 'nino@acme.com' }];
+test('the same address is looked up once', () => {
+  const attendees = [
+    { name: 'Nino', email: 'Nino@Acme.com' },
+    { name: 'Nino B', email: 'nino@acme.com' },
+  ];
 
-  assert.deepEqual(externalAttendees(attendees, ''), attendees);
+  assert.deepEqual(attendeeEmails(attendees), ['Nino@Acme.com']);
 });

@@ -32,11 +32,18 @@ export interface ZohoOptions {
   apiUrl: string;
 }
 
-// People from outside the organiser's own company — the ones worth looking up in the CRM
-export function externalAttendees<T extends { email: string }>(attendees: T[], organiserEmail: string): T[] {
-  const ownDomain = organiserEmail.split('@')[1]?.toLowerCase();
-  if (!ownDomain) return attendees;
-  return attendees.filter(a => a.email.split('@')[1]?.toLowerCase() !== ownDomain);
+// Every address on the call, each one once — colleagues included, since internal calls
+// can belong on a CRM record too. Anyone not in the CRM simply produces no match.
+export function attendeeEmails(attendees: { email: string }[]): string[] {
+  const seen = new Set<string>();
+  const emails: string[] = [];
+  for (const { email } of attendees) {
+    const key = email.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    emails.push(email.trim());
+  }
+  return emails;
 }
 
 export class ZohoService {

@@ -1,6 +1,6 @@
 import type { Meeting, ZohoAttachment } from '../../../shared/types';
 import type { DatabaseService } from './database';
-import { ZohoService, externalAttendees } from './zoho';
+import { ZohoService, attendeeEmails } from './zoho';
 import { buildTranscriptDocx, transcriptFileName } from './transcript-docx';
 
 // Attach the meeting's Word transcript to every CRM record (Lead and Contact) whose email
@@ -12,10 +12,9 @@ export async function attachTranscriptToZoho(db: DatabaseService, meeting: Meeti
     return;
   }
 
-  const owner = await db.getUserById(meeting.userId);
-  const guests = externalAttendees(meeting.attendees ?? [], owner?.email ?? '');
-  if (guests.length === 0) {
-    console.log('No outside participants with an email — nothing to attach in Zoho');
+  const emails = attendeeEmails(meeting.attendees ?? []);
+  if (emails.length === 0) {
+    console.log('No participant emails on this meeting — nothing to attach in Zoho');
     return;
   }
 
@@ -30,21 +29,21 @@ export async function attachTranscriptToZoho(db: DatabaseService, meeting: Meeti
   const fileName = transcriptFileName(meeting);
 
   const results: ZohoAttachment[] = [];
-  for (const guest of guests) {
+  for (const email of emails) {
     try {
-      const records = await zoho.findByEmail(guest.email);
+      const records = await zoho.findByEmail(email);
       if (records.length === 0) {
-        results.push({ email: guest.email, status: 'not_found' });
+        results.push({ email, status: 'not_found' });
         continue;
       }
       for (const record of records) {
         await zoho.uploadAttachment(record.module, record.id, fileName, docx);
-        results.push({ email: guest.email, name: record.name, module: record.module, status: 'uploaded' });
+        results.push({ email, name: record.name, module: record.module, status: 'uploaded' });
         console.log(`Zoho: attached "${fileName}" to ${record.module}/${record.id} (${record.name})`);
       }
     } catch (err) {
-      console.error(`Zoho attachment for ${guest.email} failed:`, err instanceof Error ? err.message : err);
-      results.push({ email: guest.email, status: 'failed' });
+      console.error(`Zoho attachment for ${email} failed:`, err instanceof Error ? err.message : err);
+      results.push({ email, status: 'failed' });
     }
   }
 
