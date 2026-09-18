@@ -117,15 +117,45 @@ function pollCaptions() {
   }
 }
 
+// Meet's own caption strip stays in the page (we read it) but is hidden; the text shows in our panel instead
+function hideMeetCaptions(hidden) {
+  const region = document.querySelector('div[role="region"][tabindex="0"]');
+  if (region) {
+    region.style.opacity = hidden ? '0' : '';
+    region.style.pointerEvents = hidden ? 'none' : '';
+  }
+}
+
+function renderLiveCaptions(blocks) {
+  const panel = document.getElementById('gegidze-live');
+  if (!panel) return;
+  const recent = blocks.slice(-3);
+  panel.style.display = recent.length ? 'block' : 'none';
+  panel.replaceChildren(...recent.map(({ name, text }) => {
+    const line = document.createElement('div');
+    line.style.marginBottom = '6px';
+    const who = document.createElement('span');
+    who.style.cssText = 'color:#7b6cf6;font-weight:600;';
+    who.textContent = `${name}: `;
+    line.append(who, document.createTextNode(text));
+    return line;
+  }));
+}
+
 function startCaptionTracking() {
   captionIntervals = [];
   activeCaptionBlocks.clear();
   turnOnCaptions();
-  captionTimer = setInterval(pollCaptions, 500);
+  captionTimer = setInterval(() => {
+    hideMeetCaptions(true);
+    pollCaptions();
+    renderLiveCaptions(readCaptionBlocks());
+  }, 500);
 }
 
 function stopCaptionTracking() {
   if (captionTimer) { clearInterval(captionTimer); captionTimer = null; }
+  hideMeetCaptions(false);
   for (const entry of activeCaptionBlocks.values()) {
     captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
   }
@@ -410,6 +440,12 @@ function showRecordingIndicator() {
         font-weight:600;cursor:pointer;
       ">Stop</button>
     </div>
+    <div id="gegidze-live" style="
+      position: fixed; top: 64px; right: 16px; z-index: 999999; width: 360px; max-height: 40vh; overflow: hidden;
+      background: rgba(18, 18, 31, 0.92); border: 1px solid #2a2a3e; border-radius: 10px;
+      padding: 10px 14px; color: #e8e6f0; display: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5;
+    "></div>
     <style>
       @keyframes gegidze-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     </style>
