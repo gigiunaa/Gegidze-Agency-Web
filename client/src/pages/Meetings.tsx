@@ -115,9 +115,9 @@ export function MeetingsPage() {
       label: 'Participants',
       width: '1fr',
       render: (row) => (
-        <span className={styles.participants}>
-          {row.participants.length > 0
-            ? `${row.participants.length} participants`
+        <span className={styles.participants} title={(row.attendees ?? []).map((a) => a.email).join(', ')}>
+          {row.attendees && row.attendees.length > 0
+            ? row.attendees.map((a) => a.name).join(', ')
             : '\u2014'}
         </span>
       ),
