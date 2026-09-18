@@ -45,6 +45,7 @@ export interface ZohoAttachment {
   // CRM record the file was attached to, when one was found
   name?: string;
   module?: string;
+  url?: string;
   status: 'uploaded' | 'not_found' | 'failed';
 }
 

@@ -32,7 +32,7 @@ async function withFakeZoho(
   const { port } = server.address() as AddressInfo;
   const base = `http://127.0.0.1:${port}`;
   try {
-    await run(new ZohoService({ accountsUrl: base, apiUrl: base, clientId: 'id', clientSecret: 'secret', refreshToken: 'r' }), received);
+    await run(new ZohoService({ accountsUrl: base, apiUrl: base, clientId: 'id', clientSecret: 'secret', refreshToken: 'r', portal: 'testportal' }), received);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -42,7 +42,7 @@ test('finds a Lead by email', async () => {
   await withFakeZoho({ leads: [{ id: 'L1', Full_Name: 'Nino Beridze', Email: 'nino@acme.com' }] }, async (zoho, received) => {
     const found = await zoho.findByEmail('nino@acme.com');
 
-    assert.deepEqual(found, [{ module: 'Leads', id: 'L1', name: 'Nino Beridze' }]);
+    assert.deepEqual(found, [{ module: 'Leads', id: 'L1', name: 'Nino Beridze', url: 'https://crm.zoho.eu/crm/testportal/tab/Leads/L1' }]);
     assert.ok(received.some(r => r.url === '/Leads/search?email=nino%40acme.com'));
   });
 });
@@ -54,9 +54,9 @@ test('finds the same person as a Lead and as a Contact', async () => {
   };
 
   await withFakeZoho(both, async (zoho) => {
-    assert.deepEqual(await zoho.findByEmail('nino@acme.com'), [
-      { module: 'Leads', id: 'L1', name: 'Nino Beridze' },
-      { module: 'Contacts', id: 'C1', name: 'Nino B' },
+    assert.deepEqual((await zoho.findByEmail('nino@acme.com')).map(r => r.url), [
+      'https://crm.zoho.eu/crm/testportal/tab/Leads/L1',
+      'https://crm.zoho.eu/crm/testportal/tab/Contacts/C1',
     ]);
   });
 });

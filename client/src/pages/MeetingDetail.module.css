@@ -431,3 +431,11 @@
 
 .zohoOk { color: var(--color-text-primary); }
 .zohoMiss { color: var(--color-text-muted); }
+
+.zohoRecordLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.zohoRecordLink:hover { text-decoration: underline; }

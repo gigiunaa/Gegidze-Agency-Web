@@ -22,6 +22,8 @@ export interface ZohoRecordRef {
   module: 'Leads' | 'Contacts';
   id: string;
   name: string;
+  // Where to open this record in the Zoho CRM web app
+  url: string;
 }
 
 export interface ZohoOptions {
@@ -30,6 +32,9 @@ export interface ZohoOptions {
   refreshToken: string;
   accountsUrl: string;
   apiUrl: string;
+  // The company's portal name, the part after /crm/ in Zoho CRM links
+  portal: string;
+  crmUrl: string;
 }
 
 // Every address on the call, each one once — colleagues included, since internal calls
@@ -59,8 +64,14 @@ export class ZohoService {
       refreshToken: config.zohoRefreshToken,
       accountsUrl: 'https://accounts.zoho.eu',
       apiUrl: 'https://www.zohoapis.eu/crm/v2',
+      portal: config.zohoPortal,
+      crmUrl: 'https://crm.zoho.eu',
       ...options,
     };
+  }
+
+  private recordUrl(module: string, id: string): string {
+    return `${this.options.crmUrl}/crm/${this.options.portal}/tab/${module}/${id}`;
   }
 
   get isConfigured(): boolean {
@@ -187,6 +198,7 @@ export class ZohoService {
             module,
             id: record.id,
             name: record.Full_Name || [record.First_Name, record.Last_Name].filter(Boolean).join(' ') || email,
+            url: this.recordUrl(module, record.id),
           });
         }
       } catch (err) {

@@ -138,7 +138,10 @@ function ZohoSection({ meeting }: { meeting: Meeting }) {
         <ul className={styles.zohoList}>
           {results.map((r, i) => (
             <li key={i} className={r.status === 'uploaded' ? styles.zohoOk : styles.zohoMiss}>
-              {r.status === 'uploaded' ? '✓ ' : '· '}{label(r)}
+              {r.status === 'uploaded' ? '✓ ' : '· '}
+              {r.url ? (
+                <a href={r.url} target="_blank" rel="noopener noreferrer" className={styles.zohoRecordLink}>{label(r)}</a>
+              ) : label(r)}
             </li>
           ))}
         </ul>

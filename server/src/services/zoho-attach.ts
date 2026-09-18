@@ -38,7 +38,7 @@ export async function attachTranscriptToZoho(db: DatabaseService, meeting: Meeti
       }
       for (const record of records) {
         await zoho.uploadAttachment(record.module, record.id, fileName, docx);
-        results.push({ email, name: record.name, module: record.module, status: 'uploaded' });
+        results.push({ email, name: record.name, module: record.module, url: record.url, status: 'uploaded' });
         console.log(`Zoho: attached "${fileName}" to ${record.module}/${record.id} (${record.name})`);
       }
     } catch (err) {

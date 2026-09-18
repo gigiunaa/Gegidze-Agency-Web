@@ -23,10 +23,10 @@ export function createZohoRouter(db: DatabaseService): Router {
       // The invite is usually read after the call; do it now so we know who is on this one
       if (!meeting.attendees) meeting = await enrichMeetingFromCalendar(db, meeting);
 
-      const matches: { email: string; name: string; module: string }[] = [];
+      const matches: { email: string; name: string; module: string; url: string }[] = [];
       for (const email of attendeeEmails(meeting.attendees ?? [])) {
         for (const record of await zoho.findByEmail(email)) {
-          matches.push({ email, name: record.name, module: record.module });
+          matches.push({ email, name: record.name, module: record.module, url: record.url });
         }
       }
       return res.json({ matches });

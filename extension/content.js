@@ -249,7 +249,16 @@ function showCrmNotice(meetingId) {
     title.textContent = 'Zoho CRM';
     box.appendChild(title);
     for (const m of matches) {
-      const line = document.createElement('div');
+      // Clicking opens the record in Zoho CRM
+      const line = document.createElement(m.url ? 'a' : 'div');
+      if (m.url) {
+        line.href = m.url;
+        line.target = '_blank';
+        line.rel = 'noopener noreferrer';
+        line.style.cssText = 'display:block;color:#141428;text-decoration:none;border-bottom:1px solid transparent;';
+        line.addEventListener('mouseenter', () => { line.style.borderBottomColor = '#7b6cf6'; });
+        line.addEventListener('mouseleave', () => { line.style.borderBottomColor = 'transparent'; });
+      }
       line.textContent = `✓ ${m.name} (${m.module === 'Leads' ? 'Lead' : 'Contact'}) — ${m.email}`;
       box.appendChild(line);
     }
