@@ -1,7 +1,55 @@
-import OpenAI from 'openai';
-import type { ActionItem } from '../../../shared/types';
+import type { NoteSection } from '../../../shared/types';
 import type { DatabaseService } from './database';
 import { config } from '../config';
+import { generateJson, type GeminiOptions } from './gemini';
+
+export interface Notes {
+  overview: string;
+  sections: NoteSection[];
+  nextSteps: string[];
+}
+
+// Shorter transcripts (a test call, a hello) don't need notes
+export const MIN_WORDS_FOR_NOTES = 40;
+
+const NOTES_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    overview: { type: 'STRING' },
+    sections: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { heading: { type: 'STRING' }, text: { type: 'STRING' } },
+        required: ['heading', 'text'],
+      },
+    },
+    nextSteps: { type: 'ARRAY', items: { type: 'STRING' } },
+  },
+  required: ['overview', 'sections', 'nextSteps'],
+};
+
+const NOTES_PROMPT = [
+  'შენ ბიზნეს-შეხვედრების ჩანაწერებს წერ. ქვემოთ მოცემულია ზარის ტრანსკრიპტი (ხაზის დასაწყისში კვადრატულ ფრჩხილებში მოლაპარაკის სახელია).',
+  'დაწერე შეხვედრის ჩანაწერები ქართულ ენაზე, მხოლოდ იმის საფუძველზე, რაც ტრანსკრიპტშია. არაფერი გამოიგონო და არაფერი დაამატო.',
+  'ფორმატი:',
+  '- overview: 2–3 წინადადება — რაზე იყო საუბარი და რა შედეგით დასრულდა.',
+  '- sections: 3–6 თემა. heading — მოკლე სათაური (2–4 სიტყვა); text — 1–3 წინადადება ფაქტებით: რიცხვები, ვადები, სახელები, გადაწყვეტილებები.',
+  '- nextSteps: შეთანხმებული შემდეგი ნაბიჯები, ვინ და როდის. თუ არ იყო — ცარიელი სია.',
+  'პროდუქტების და კომპანიების სახელები (Google Ads, Zoho, WhatsApp) ლათინურად დატოვე. ტექსტში მხოლოდ ქართული ასოები გამოიყენე, სხვა ანბანის ასოები არ აურიო.',
+  '',
+  'ტრანსკრიპტი:',
+].join('\n');
+
+// Meeting notes in Georgian from the transcript text
+export async function buildNotes(transcript: string, options: Pick<GeminiOptions, 'apiKey' | 'model' | 'baseUrl' | 'retryDelayMs'>): Promise<Notes> {
+  const result = await generateJson<Partial<Notes>>([{ text: `${NOTES_PROMPT}\n${transcript}` }], NOTES_SCHEMA, options);
+  return {
+    overview: result.overview?.trim() ?? '',
+    sections: (result.sections ?? []).filter(s => s.heading && s.text),
+    nextSteps: (result.nextSteps ?? []).filter(Boolean),
+  };
+}
 
 export class SummaryService {
   private db: DatabaseService;
@@ -16,72 +64,19 @@ export class SummaryService {
       throw new Error(`Transcription not found: ${transcriptionId}`);
     }
 
-    // Skip summary if transcript is too short (less than 20 words)
-    const wordCount = transcription.fullText.trim().split(/\s+/).length;
-    if (wordCount < 20) {
-      console.log(`Skipping summary — transcript too short (${wordCount} words)`);
+    const wordCount = transcription.fullText.trim().split(/\s+/).filter(Boolean).length;
+    if (wordCount < MIN_WORDS_FOR_NOTES) {
+      console.log(`Skipping notes — transcript too short (${wordCount} words)`);
       return;
     }
 
-    const apiKey = config.openaiApiKey;
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured. Set OPENAI_API_KEY in .env');
-    }
-
-    const client = new OpenAI({ apiKey });
-
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: 8192,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a detailed meeting analyst. Your job is to create comprehensive summaries so that someone who was NOT on the call can fully understand everything that was discussed. Summarize ONLY what is actually said in the transcript. Do NOT invent or hallucinate any information. Be thorough — cover every topic, question, concern, and response. Always respond with valid JSON.',
-        },
-        {
-          role: 'user',
-          content: `Analyze the following meeting transcript and provide a comprehensive, detailed summary based ONLY on what was actually said. A team member who was not on this call should be able to read your summary and understand everything that happened.
-
-Return your response as JSON with the following structure:
-{
-  "overview": "A detailed overview covering all main topics discussed, who said what, and the overall flow of the conversation. Be thorough — write as many sentences as needed to capture the full picture.",
-  "keyPoints": ["Detailed key point 1", "Detailed key point 2", ...],
-  "actionItems": [{"description": "Specific task description with full context", "assignee": "Person name or null", "dueDate": "Date or null"}],
-  "decisions": ["Decision 1 with context of why it was made", "Decision 2", ...]
-}
-
-Guidelines:
-- Overview should be detailed enough to replace listening to the call
-- Key points should capture every important topic, not just the top 3
-- Include who proposed what, who agreed/disagreed, and any concerns raised
-- If there are no action items or decisions, return empty arrays
-
-Transcript:
-${transcription.fullText}`,
-        },
-      ],
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from GPT');
-    }
-
-    const parsed = JSON.parse(content) as {
-      overview: string;
-      keyPoints: string[];
-      actionItems: ActionItem[];
-      decisions: string[];
-    };
+    console.log(`Writing notes for meeting ${transcription.meetingId} (${wordCount} words)...`);
+    const notes = await buildNotes(transcription.fullText, { apiKey: config.geminiApiKey, model: config.transcriptionModel });
 
     await this.db.createSummary({
       meetingId: transcription.meetingId,
       transcriptionId: transcription.id,
-      overview: parsed.overview,
-      keyPoints: parsed.keyPoints,
-      actionItems: parsed.actionItems,
-      decisions: parsed.decisions,
+      ...notes,
     });
   }
 }

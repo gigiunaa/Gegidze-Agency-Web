@@ -7,6 +7,7 @@ import type { DatabaseService } from '../services/database';
 import type { SpeakerInterval } from '../../../shared/types';
 import { TranscriptionService } from '../services/transcription';
 import { enrichMeetingFromCalendar } from '../services/calendar-enrichment';
+import { SummaryService } from '../services/summary';
 import { config } from '../config';
 
 // "Who spoke when" sent by the extension as JSON; anything malformed is ignored rather than failing the upload
@@ -27,6 +28,7 @@ function parseCaptions(raw: unknown): SpeakerInterval[] {
 export function createRecordingsRouter(db: DatabaseService): Router {
   const router = Router();
   const transcription = new TranscriptionService(db);
+  const summaryService = new SummaryService(db);
 
   if (!config.geminiApiKey) {
     console.warn('GEMINI_API_KEY is not set — uploaded recordings will fail to transcribe');
@@ -92,10 +94,18 @@ export function createRecordingsRouter(db: DatabaseService): Router {
 
       await db.updateMeetingStatus(meetingId, 'processing');
 
-      // Background pipeline: calendar invite → transcribe → cleanup
+      // Background pipeline: calendar invite → transcribe → notes → cleanup
       (async () => {
         await enrichMeetingFromCalendar(db, meeting);
         await transcription.transcribe(recording.id);
+
+        // Notes are a bonus on top of the transcript: never fail the meeting over them
+        try {
+          const trans = await db.getTranscription(meetingId);
+          if (trans) await summaryService.generate(trans.id);
+        } catch (err) {
+          console.error('Notes failed (non-fatal):', err instanceof Error ? err.message : err);
+        }
 
         // Clean up local files since user doesn't want them stored locally
         cleanupFiles(micFile.path, speakerFile?.path);

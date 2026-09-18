@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Meeting, Transcription } from '../../../shared/types';
+import type { Meeting, Transcription, Summary } from '../../../shared/types';
 import styles from './MeetingDetail.module.css';
 
 export function MeetingDetailPage() {
@@ -9,6 +9,7 @@ export function MeetingDetailPage() {
   const navigate = useNavigate();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [transcription, setTranscription] = useState<Transcription | null>(null);
+  const [notes, setNotes] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,12 +19,14 @@ export function MeetingDetailPage() {
 
   async function loadData(meetingId: string) {
     setLoading(true);
-    const [m, t] = await Promise.all([
+    const [m, t, n] = await Promise.all([
       api.meetings.get(meetingId),
       api.transcription.get(meetingId),
+      api.summary.get(meetingId).catch(() => null),
     ]);
     setMeeting(m);
     setTranscription(t);
+    setNotes(n);
     setLoading(false);
   }
 
@@ -66,6 +69,8 @@ export function MeetingDetailPage() {
 
       {transcription && <DownloadWordButton meeting={meeting} />}
 
+      {notes && <NotesView notes={notes} />}
+
       <div className={styles.tabContent}>
         <TranscriptView transcription={transcription} />
       </div>
@@ -96,6 +101,22 @@ function DownloadWordButton({ meeting }: { meeting: Meeting }) {
         {downloading ? 'Preparing...' : 'Download Word'}
       </button>
       {error && <span className={styles.errorText}>{error}</span>}
+    </div>
+  );
+}
+
+// ── Notes (summary) ───────────────────────────────────────────────────────
+function NotesView({ notes }: { notes: Summary }) {
+  return (
+    <div className={styles.summary}>
+      <section className={styles.summarySection}><h3>Summary</h3><p>{notes.overview}</p></section>
+      {notes.sections.map((s, i) => (
+        <section key={i} className={styles.summarySection}><h3>{s.heading}</h3><p>{s.text}</p></section>
+      ))}
+      {notes.nextSteps.length > 0 && (
+        <section className={styles.summarySection}><h3>Next steps</h3><ul>{notes.nextSteps.map((step, i) => <li key={i}>{step}</li>)}</ul></section>
+      )}
+      <h3 className={styles.transcriptTitle}>Transcript</h3>
     </div>
   );
 }

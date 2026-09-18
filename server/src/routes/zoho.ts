@@ -53,11 +53,9 @@ export function createZohoRouter(db: DatabaseService): Router {
       const summaryText = [
         summary.overview,
         '',
-        summary.keyPoints.length > 0 ? `Key Points:\n${summary.keyPoints.map(p => `• ${p}`).join('\n')}` : '',
+        ...summary.sections.map(s => `${s.heading}\n${s.text}`),
         '',
-        summary.actionItems.length > 0 ? `Action Items:\n${summary.actionItems.map(a => `• ${a.description}${a.assignee ? ` — ${a.assignee}` : ''}${a.dueDate ? ` (due: ${a.dueDate})` : ''}`).join('\n')}` : '',
-        '',
-        summary.decisions.length > 0 ? `Decisions:\n${summary.decisions.map(d => `• ${d}`).join('\n')}` : '',
+        summary.nextSteps.length > 0 ? `Next steps:\n${summary.nextSteps.map(step => `• ${step}`).join('\n')}` : '',
         '',
         meeting.clickupTaskUrl ? `[Recording] ${meeting.clickupTaskUrl}` : '',
       ].filter(Boolean).join('\n');

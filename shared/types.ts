@@ -88,17 +88,16 @@ export interface Summary {
   id: string;
   meetingId: string;
   transcriptionId: string;
+  // Meeting notes in the language of the call: a short overview, topics with headings, next steps
   overview: string;
-  keyPoints: string[];
-  actionItems: ActionItem[];
-  decisions: string[];
+  sections: NoteSection[];
+  nextSteps: string[];
   createdAt: string;
 }
 
-export interface ActionItem {
-  description: string;
-  assignee?: string;
-  dueDate?: string;
+export interface NoteSection {
+  heading: string;
+  text: string;
 }
 
 // ─── Settings ───────────────────────────────────────────────────────

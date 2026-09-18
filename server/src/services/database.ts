@@ -315,7 +315,7 @@ export class DatabaseService {
     await this.queryWithRetry(`
       INSERT INTO summaries (id, meeting_id, transcription_id, overview, key_points, action_items, decisions)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [id, summary.meetingId, summary.transcriptionId, summary.overview, JSON.stringify(summary.keyPoints), JSON.stringify(summary.actionItems), JSON.stringify(summary.decisions)]);
+    `, [id, summary.meetingId, summary.transcriptionId, summary.overview, JSON.stringify(summary.sections), JSON.stringify(summary.nextSteps), "[]"]);
     return (await this.getSummaryById(id))!;
   }
 
@@ -337,9 +337,9 @@ export class DatabaseService {
       meetingId: row.meeting_id as string,
       transcriptionId: row.transcription_id as string,
       overview: row.overview as string,
-      keyPoints: typeof row.key_points === 'string' ? JSON.parse(row.key_points) : row.key_points,
-      actionItems: typeof row.action_items === 'string' ? JSON.parse(row.action_items) : row.action_items,
-      decisions: typeof row.decisions === 'string' ? JSON.parse(row.decisions) : row.decisions,
+      // Notes live in the original key_points / action_items columns
+      sections: typeof row.key_points === 'string' ? JSON.parse(row.key_points) : row.key_points,
+      nextSteps: typeof row.action_items === 'string' ? JSON.parse(row.action_items) : row.action_items,
       createdAt: row.created_at as string,
     };
   }

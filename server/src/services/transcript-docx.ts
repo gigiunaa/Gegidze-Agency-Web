@@ -3,6 +3,7 @@ import {
   Footer, PageNumber, Table, TableRow, TableCell, WidthType, ShadingType,
 } from 'docx';
 import type { Meeting, Transcription, TranscriptSegment } from '../../../shared/types';
+import type { Notes } from './summary';
 
 const ACCENT = '7B6CF6';
 const MUTED = '8888A0';
@@ -40,7 +41,7 @@ const run = (text: string, extra: Partial<ConstructorParameters<typeof TextRun>[
   new TextRun({ text, color: TEXT, ...extra });
 
 // Word document: title block, participants, then the conversation as speaker turns
-export async function buildTranscriptDocx(meeting: Meeting, transcription: Transcription): Promise<Buffer> {
+export async function buildTranscriptDocx(meeting: Meeting, transcription: Transcription, notes?: Notes | null): Promise<Buffer> {
   const date = new Date(meeting.startTime).toLocaleString('en-GB', { dateStyle: 'long', timeStyle: 'short' });
   const turns = mergeTurns(transcription.segments);
   const duration = turns.length > 0 ? formatDuration(turns[turns.length - 1].end) : null;
@@ -79,8 +80,26 @@ export async function buildTranscriptDocx(meeting: Meeting, transcription: Trans
       ]
     : [];
 
+  // Notes page (overview, topics, next steps); the transcript starts on a new page after it
+  const notesBlock = notes && notes.overview
+    ? [
+        new Paragraph({ children: [run('Summary', { bold: true, size: 28 })], spacing: { before: 120, after: 120 } }),
+        new Paragraph({ children: [run(notes.overview)], spacing: { after: 240, line: 300 } }),
+        ...notes.sections.flatMap(section => [
+          new Paragraph({ children: [run(section.heading, { bold: true, size: 24 })], spacing: { before: 160, after: 60 } }),
+          new Paragraph({ children: [run(section.text)], spacing: { after: 120, line: 300 } }),
+        ]),
+        ...(notes.nextSteps.length > 0
+          ? [
+              new Paragraph({ children: [run('Next steps', { bold: true, size: 24 })], spacing: { before: 200, after: 60 } }),
+              ...notes.nextSteps.map(step => new Paragraph({ children: [run(step)], bullet: { level: 0 }, spacing: { after: 60 } })),
+            ]
+          : []),
+      ]
+    : [];
+
   const transcript = [
-    new Paragraph({ children: [run('Transcript', { bold: true, size: 24 })], spacing: { before: 120, after: 160 } }),
+    new Paragraph({ children: [run('Transcript', { bold: true, size: 24 })], spacing: { before: 120, after: 160 }, pageBreakBefore: notesBlock.length > 0 }),
     ...(turns.length > 0
       ? turns.flatMap(turn => [
           new Paragraph({
@@ -114,7 +133,7 @@ export async function buildTranscriptDocx(meeting: Meeting, transcription: Trans
           })],
         }),
       },
-      children: [...header, ...participants, ...transcript],
+      children: [...header, ...participants, ...notesBlock, ...transcript],
     }],
   });
 

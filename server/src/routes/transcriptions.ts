@@ -34,7 +34,8 @@ export function createTranscriptionsRouter(db: DatabaseService): Router {
       return res.status(404).json({ error: 'No transcript for this meeting yet' });
     }
 
-    const docx = await buildTranscriptDocx(meeting, transcription);
+    const notes = await db.getSummary(meeting.id);
+    const docx = await buildTranscriptDocx(meeting, transcription, notes);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(transcriptFileName(meeting))}`);
     return res.send(docx);

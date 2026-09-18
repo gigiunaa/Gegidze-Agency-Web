@@ -76,8 +76,9 @@ export async function transcribeWithGemini(filePath: string, options: GeminiOpti
 
   const file = await uploadFile(baseUrl, options.apiKey, audioBuffer, mimeType);
   try {
-    const parsed = await generateWithRetry(baseUrl, options, file.uri, mimeType);
-    const segments = linesToSegments(parsed.segments, options.offsetSeconds ?? 0);
+    const parsed = await generateJson<{ language?: string; segments?: TimedLine[] }>(
+      [{ file_data: { mime_type: mimeType, file_uri: file.uri } }, { text: PROMPT }], RESPONSE_SCHEMA, options);
+    const segments = linesToSegments(parsed.segments ?? [], options.offsetSeconds ?? 0);
     return {
       text: segments.map(seg => seg.text).join(' '),
       segments,
@@ -131,17 +132,19 @@ async function uploadFile(baseUrl: string, apiKey: string, audio: Buffer, mimeTy
   return file;
 }
 
-async function generateWithRetry(
-  baseUrl: string,
-  options: GeminiOptions,
-  fileUri: string,
-  mimeType: string
-): Promise<{ language: string; segments: TimedLine[] }> {
-  let lastError: Error = new Error('Gemini transcription failed');
+export type GeminiPart = { text: string } | { file_data: { mime_type: string; file_uri: string } };
+
+// Ask the model for JSON matching a schema, retrying on rate limits, cut-off output and unreadable JSON
+export async function generateJson<T>(parts: GeminiPart[], schema: object, options: Pick<GeminiOptions, 'apiKey' | 'model' | 'baseUrl' | 'retryDelayMs'>): Promise<T> {
+  if (!options.apiKey) {
+    throw new Error('Gemini API key not configured. Set GEMINI_API_KEY in .env');
+  }
+  const baseUrl = options.baseUrl ?? 'https://generativelanguage.googleapis.com';
+  let lastError: Error = new Error('Gemini request failed');
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await generate(baseUrl, options, fileUri, mimeType);
+      return await generateOnce<T>(baseUrl, options, parts, schema);
     } catch (err) {
       if (!(err instanceof RetryableError)) throw err;
       lastError = err;
@@ -153,24 +156,21 @@ async function generateWithRetry(
   throw lastError;
 }
 
-async function generate(
+async function generateOnce<T>(
   baseUrl: string,
-  options: GeminiOptions,
-  fileUri: string,
-  mimeType: string
-): Promise<{ language: string; segments: TimedLine[] }> {
+  options: Pick<GeminiOptions, 'apiKey' | 'model'>,
+  parts: GeminiPart[],
+  schema: object
+): Promise<T> {
   const response = await fetch(`${baseUrl}/v1beta/models/${options.model}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': options.apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [{ file_data: { mime_type: mimeType, file_uri: fileUri } }, { text: PROMPT }],
-      }],
+      contents: [{ role: 'user', parts }],
       generationConfig: {
         maxOutputTokens: 65536,
         responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
+        responseSchema: schema,
       },
     }),
   });
@@ -193,8 +193,7 @@ async function generate(
 
   const text = (candidate.content?.parts ?? []).filter(p => p.text && !p.thought).map(p => p.text).join('');
   try {
-    const parsed = JSON.parse(text) as { language?: string; segments?: TimedLine[] };
-    return { language: parsed.language ?? '', segments: parsed.segments ?? [] };
+    return JSON.parse(text) as T;
   } catch {
     throw new RetryableError(`Gemini returned unreadable JSON: ${text.slice(0, 200)}`);
   }

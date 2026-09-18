@@ -92,3 +92,19 @@ test('merges consecutive lines of the same speaker into one paragraph', async ()
   assert.equal((xml.match(/>You</g) ?? []).length, 1);
   assert.match(xml, /გამარჯობა\. როგორ ხარ\?/);
 });
+
+test('puts the notes on the first page, before the transcript', async () => {
+  const notes = {
+    overview: 'ზარი შეეხო ვებსაიტის შეთავაზებას.',
+    sections: [{ heading: 'შეთავაზება', text: 'Google Ads და ვებსაიტი, 4 500 ლარი.' }],
+    nextSteps: ['გიგი გაუგზავნის შეთავაზებას.'],
+  };
+
+  const xml = await documentXml(await buildTranscriptDocx(meeting, transcription, notes));
+
+  assert.match(xml, /ზარი შეეხო ვებსაიტის შეთავაზებას\./);
+  assert.match(xml, /შეთავაზება/);
+  assert.match(xml, /გიგი გაუგზავნის შეთავაზებას\./);
+  assert.ok(xml.indexOf('ზარი შეეხო') < xml.indexOf('გამარჯობა, როგორ ხარ?'), 'notes come before the transcript');
+  assert.match(xml, /w:pageBreakBefore/);
+});
