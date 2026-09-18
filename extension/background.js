@@ -1,6 +1,6 @@
 // ── Config ────────────────────────────────────────────────────────────────
 // Change this to your Railway URL for production, or keep localhost for local dev
-const API_BASE = 'https://gegidze-agency-web-production.up.railway.app/api';
+const API_BASE = 'https://api-production-34bcd.up.railway.app/api';
 
 const CALL_PATTERNS = [
   { pattern: /^https:\/\/meet\.google\.com\/[a-z]+-[a-z]+-[a-z]+/i, platform: 'Google Meet' },
@@ -201,46 +201,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse(data);
       });
       return true;
-
-    case 'ZOHO_SEARCH': {
-      getAuthToken().then(async (token) => {
-        try {
-          const res = await fetch(`${API_BASE}/zoho/search?q=${encodeURIComponent(msg.query)}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) throw new Error('Search failed');
-          const leads = await res.json();
-          sendResponse({ leads });
-        } catch (e) {
-          sendResponse({ error: e.message });
-        }
-      });
-      return true;
-    }
-
-    case 'ZOHO_PUSH': {
-      getAuthToken().then(async (token) => {
-        try {
-          const res = await fetch(`${API_BASE}/zoho/push-summary`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ meetingId: msg.meetingId, leadId: msg.leadId }),
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || 'Push failed');
-          }
-          const result = await res.json();
-          sendResponse(result);
-        } catch (e) {
-          sendResponse({ error: e.message });
-        }
-      });
-      return true;
-    }
   }
 });
 

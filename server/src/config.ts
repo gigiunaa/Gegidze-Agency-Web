@@ -37,6 +37,8 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  transcriptionModel: process.env.TRANSCRIPTION_MODEL || 'gemini-3.8-flash',
   zohoClientId: process.env.ZOHO_CLIENT_ID || '',
   zohoClientSecret: process.env.ZOHO_CLIENT_SECRET || '',
   zohoRefreshToken: process.env.ZOHO_REFRESH_TOKEN || '',

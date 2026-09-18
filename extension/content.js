@@ -1,5 +1,5 @@
 // Content script — runs on Google Meet, Zoom, Zoho pages
-// Handles microphone recording and Zoho lead linking
+// Handles microphone + tab audio recording
 
 let mediaRecorder = null;
 let speakerRecorder = null;
@@ -54,8 +54,10 @@ async function startRecording(meetingId, tabStreamId) {
       try {
         speakerStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            chromeMediaSource: 'tab',
-            chromeMediaSourceId: tabStreamId,
+            mandatory: {
+              chromeMediaSource: 'tab',
+              chromeMediaSourceId: tabStreamId,
+            },
           },
         });
         console.log('[Gegidze] Tab audio stream obtained');
@@ -97,6 +99,12 @@ async function startRecording(meetingId, tabStreamId) {
         audioData: micArray,
         speakerData: speakerArray,
         meetingId: savedMeetingId,
+      }, (response) => {
+        if (response?.error) {
+          showNotification(`Gegidze: Upload failed — ${response.error}`, 'error');
+        } else {
+          showNotification('Gegidze: Recording uploaded. Transcript is being created.', 'success');
+        }
       });
 
       // Cleanup streams
@@ -107,8 +115,6 @@ async function startRecording(meetingId, tabStreamId) {
       micStream = null;
       speakerStream = null;
       currentMeetingId = null;
-
-      showZohoPanel(savedMeetingId);
     };
 
     mediaRecorder.start(1000);
@@ -235,133 +241,7 @@ function removeRecordingIndicator() {
   if (el) el.remove();
 }
 
-// ── UI: Zoho Lead ID Panel ────────────────────────────────────────────────
-function showZohoPanel(meetingId) {
-  if (document.getElementById('gegidze-zoho')) return;
-
-  const panel = document.createElement('div');
-  panel.id = 'gegidze-zoho';
-  panel.innerHTML = `
-    <div id="gegidze-zoho-inner" style="
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      z-index: 9999999; width: 400px;
-      background: linear-gradient(135deg, #1a1a2e, #12121f);
-      border: 1px solid #7b6cf6; border-radius: 16px;
-      padding: 28px; color: #e8e6f0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      box-shadow: 0 16px 64px rgba(0,0,0,0.5);
-      animation: gegidze-in 0.3s ease-out;
-    ">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-        <div>
-          <div style="font-weight: 700; font-size: 16px;">Zoho CRM</div>
-          <div style="color: #34d399; font-size: 12px; margin-top: 4px;">✓ Recording uploaded</div>
-        </div>
-        <button id="gegidze-zoho-skip" style="
-          background: none; border: none; color: #8b89a0;
-          cursor: pointer; font-size: 13px;
-        ">Skip</button>
-      </div>
-
-      <p style="color: #c4c2d0; font-size: 13px; margin-bottom: 12px;">
-        Enter Lead ID from Zoho CRM:
-      </p>
-
-      <div style="display: flex; gap: 8px;">
-        <input id="gegidze-zoho-lead-id" type="text" placeholder="e.g. 5765228000001234567"
-          style="
-            flex: 1; padding: 10px 14px; box-sizing: border-box;
-            background: #0a0a14; border: 1px solid #2a2a3e; border-radius: 8px;
-            color: #e8e6f0; font-size: 13px; outline: none;
-          "
-        />
-        <button id="gegidze-zoho-send" style="
-          padding: 10px 18px; background: #7b6cf6; border: none; border-radius: 8px;
-          color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-          white-space: nowrap;
-        ">Send</button>
-      </div>
-
-      <div id="gegidze-zoho-status" style="
-        margin-top: 10px; font-size: 13px; color: #8b89a0;
-      "></div>
-    </div>
-
-    <div style="
-      position: fixed; inset: 0; z-index: 9999998;
-      background: rgba(0,0,0,0.6);
-    " id="gegidze-zoho-backdrop"></div>
-  `;
-
-  document.body.appendChild(panel);
-
-  const leadIdInput = document.getElementById('gegidze-zoho-lead-id');
-  const sendBtn = document.getElementById('gegidze-zoho-send');
-  const statusDiv = document.getElementById('gegidze-zoho-status');
-
-  // Skip button
-  document.getElementById('gegidze-zoho-skip')?.addEventListener('click', closeZohoPanel);
-  document.getElementById('gegidze-zoho-backdrop')?.addEventListener('click', closeZohoPanel);
-
-  // Send button — save Lead ID and close, push happens in background after summary is ready
-  sendBtn?.addEventListener('click', () => {
-    const leadId = leadIdInput?.value?.trim();
-    if (!leadId) {
-      statusDiv.textContent = 'Please enter a Lead ID';
-      return;
-    }
-    statusDiv.innerHTML = '<span style="color: #7b6cf6;">Lead ID saved. Summary will be sent automatically.</span>';
-    sendBtn.disabled = true;
-    leadIdInput.disabled = true;
-
-    // Start background polling for summary, then push
-    waitForSummaryAndPush(meetingId, leadId);
-
-    setTimeout(closeZohoPanel, 2000);
-  });
-
-  // Enter key
-  leadIdInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendBtn?.click();
-  });
-
-  leadIdInput?.focus();
-}
-
-function waitForSummaryAndPush(meetingId, leadId) {
-  let attempts = 0;
-  const maxAttempts = 60; // 5 minutes max (every 5 seconds)
-
-  const poll = () => {
-    attempts++;
-    chrome.runtime.sendMessage({ type: 'ZOHO_PUSH', meetingId, leadId }, (response) => {
-      if (response?.error?.includes('No summary available')) {
-        // Summary not ready yet, retry
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 5000);
-        } else {
-          showNotification('Zoho CRM: Summary generation timed out. Try sending manually from the dashboard.', 'error');
-        }
-        return;
-      }
-
-      if (response?.error) {
-        showNotification(`Zoho CRM Error: ${response.error}`, 'error');
-        return;
-      }
-
-      let msg = 'Summary sent to Zoho CRM';
-      if (response?.dealsUpdated?.length > 0) {
-        msg += ` + ${response.dealsUpdated.length} Deal(s) updated`;
-      }
-      showNotification(msg, 'success');
-    });
-  };
-
-  // First attempt after 10 seconds (give transcription + summary time)
-  setTimeout(poll, 10000);
-}
-
+// ── UI: Notification ──────────────────────────────────────────────────────
 function showNotification(text, type) {
   const existing = document.getElementById('gegidze-notification');
   if (existing) existing.remove();
@@ -385,13 +265,3 @@ function showNotification(text, type) {
     setTimeout(() => div.remove(), 300);
   }, 5000);
 }
-
-function closeZohoPanel() {
-  const el = document.getElementById('gegidze-zoho');
-  if (el) {
-    el.style.transition = 'opacity 0.25s';
-    el.style.opacity = '0';
-    setTimeout(() => el.remove(), 250);
-  }
-}
-

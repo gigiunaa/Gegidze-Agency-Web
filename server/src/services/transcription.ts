@@ -1,8 +1,13 @@
 import fs from 'fs';
-import path from 'path';
 import type { TranscriptSegment } from '../../../shared/types';
 import type { DatabaseService } from './database';
 import { config } from '../config';
+import { transcribeWithGemini, type TranscriptResult } from './gemini';
+import { splitAudio, removeChunks } from './audio-chunks';
+import { transcriptSimilarity } from './transcript-utils';
+
+// Each track is transcribed in 10-minute pieces
+const CHUNK_SECONDS = 600;
 
 export class TranscriptionService {
   private db: DatabaseService;
@@ -21,9 +26,15 @@ export class TranscriptionService {
       throw new Error(`Mic recording file not found: ${recording.filePath}`);
     }
 
-    // Transcribe mic audio (this is the user's microphone — labeled as "You")
-    console.log('Transcribing mic audio...');
-    const micResult = await this.callWhisperApi(recording.filePath);
+    const hasSpeakerTrack = !!recording.speakerFilePath && fs.existsSync(recording.speakerFilePath);
+
+    // Mic audio is the user's microphone ("You"); speaker/tab audio is the other participants
+    console.log(`Transcribing mic audio${hasSpeakerTrack ? ' and speaker audio' : ''}...`);
+    const [micResult, speakerResult] = await Promise.all([
+      this.transcribeTrack(recording.filePath),
+      hasSpeakerTrack ? this.transcribeTrack(recording.speakerFilePath!) : Promise.resolve(null),
+    ]);
+
     const micSegments: TranscriptSegment[] = micResult.segments.map(seg => ({
       ...seg,
       speaker: 'You',
@@ -31,16 +42,24 @@ export class TranscriptionService {
 
     let allSegments = micSegments;
 
-    // Transcribe speaker/tab audio if available (other participants)
-    if (recording.speakerFilePath && fs.existsSync(recording.speakerFilePath)) {
-      console.log('Transcribing speaker audio...');
-      const speakerResult = await this.callWhisperApi(recording.speakerFilePath);
+    if (speakerResult) {
       const speakerSegments: TranscriptSegment[] = speakerResult.segments.map(seg => ({
         ...seg,
         speaker: 'Participant',
       }));
 
-      allSegments = [...micSegments, ...speakerSegments].sort((a, b) => a.start - b.start);
+      // Check if speaker audio is just a duplicate of mic (user alone on call)
+      // Compare texts — if >80% similar, skip speaker segments
+      const similarity = transcriptSimilarity(micResult.text, speakerResult.text);
+      console.log(`Mic vs Speaker similarity: ${(similarity * 100).toFixed(0)}%`);
+
+      if (similarity < 0.8) {
+        // Different content — include both tracks
+        allSegments = [...micSegments, ...speakerSegments].sort((a, b) => a.start - b.start);
+      } else {
+        // Same content — user is alone, only keep mic ("You")
+        console.log('Speaker audio matches mic — skipping duplicate (user alone on call)');
+      }
     }
 
     const fullText = allSegments
@@ -59,55 +78,26 @@ export class TranscriptionService {
     await this.db.updateMeetingStatus(recording.meetingId, 'completed');
   }
 
-  private async callWhisperApi(filePath: string): Promise<{
-    text: string;
-    segments: TranscriptSegment[];
-    language: string;
-  }> {
-    const audioBuffer = fs.readFileSync(filePath);
-    const blob = new Blob([audioBuffer], { type: 'audio/webm' });
+  // Transcribe one audio track chunk by chunk, with segment times relative to the whole track
+  private async transcribeTrack(filePath: string): Promise<TranscriptResult> {
+    const chunks = await splitAudio(filePath, CHUNK_SECONDS);
+    try {
+      const results: TranscriptResult[] = [];
+      for (const [index, chunk] of chunks.entries()) {
+        results.push(await transcribeWithGemini(chunk, {
+          apiKey: config.geminiApiKey,
+          model: config.transcriptionModel,
+          offsetSeconds: index * CHUNK_SECONDS,
+        }));
+      }
 
-    const formData = new FormData();
-    formData.append('file', blob, path.basename(filePath));
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
-    formData.append('response_format', 'verbose_json');
-    formData.append('timestamp_granularities[]', 'segment');
-
-    const apiKey = config.openaiApiKey;
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured. Set OPENAI_API_KEY in .env');
+      return {
+        text: results.map(r => r.text).join(' '),
+        segments: results.flatMap(r => r.segments),
+        language: results[0]?.language ?? 'ka',
+      };
+    } finally {
+      removeChunks(filePath);
     }
-
-    console.log(`Calling Whisper API for ${path.basename(filePath)} (${audioBuffer.length} bytes)...`);
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Whisper API error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json() as { text: string; segments?: { start: number; end: number; text: string }[]; language?: string };
-
-    const segments: TranscriptSegment[] = (data.segments ?? []).map(
-      (seg) => ({
-        start: seg.start,
-        end: seg.end,
-        text: seg.text.trim(),
-      })
-    );
-
-    return {
-      text: data.text,
-      segments,
-      language: data.language ?? 'en',
-    };
   }
 }
