@@ -58,9 +58,38 @@ export function MeetingDetailPage() {
         </a>
       )}
 
+      {transcription && <DownloadWordButton meeting={meeting} />}
+
       <div className={styles.tabContent}>
         <TranscriptView transcription={transcription} />
       </div>
+    </div>
+  );
+}
+
+// ── Word download ─────────────────────────────────────────────────────────
+function DownloadWordButton({ meeting }: { meeting: Meeting }) {
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleDownload() {
+    setDownloading(true);
+    setError('');
+    try {
+      await api.transcription.downloadDocx(meeting.id, `${meeting.title.replace(/[\\/:*?"<>|]/g, '-')}.docx`);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className={styles.downloadRow}>
+      <button className={styles.downloadBtn} onClick={handleDownload} disabled={downloading}>
+        {downloading ? 'Preparing...' : 'Download Word'}
+      </button>
+      {error && <span className={styles.errorText}>{error}</span>}
     </div>
   );
 }

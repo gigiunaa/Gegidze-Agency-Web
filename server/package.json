@@ -13,6 +13,7 @@
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
+    "docx": "^9.7.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
@@ -28,6 +29,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "@types/pg": "^8.20.0",
+    "jszip": "^3.10.2",
     "tsx": "^4.19.4",
     "typescript": "^5.7.3"
   }

@@ -85,6 +85,22 @@ export const api = {
 
   transcription: {
     get: (meetingId: string) => get<Transcription | null>(`/transcriptions/${meetingId}`),
+    // Fetch the Word document with the auth token, then hand it to the browser as a download
+    downloadDocx: async (meetingId: string, fileName: string) => {
+      const res = await fetch(`${API_BASE}/transcriptions/${meetingId}/docx`, {
+        headers: { Authorization: `Bearer ${getToken() ?? ''}` },
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(error.error || 'Download failed');
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
   },
 
   summary: {

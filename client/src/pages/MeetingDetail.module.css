@@ -260,6 +260,40 @@
   border-color: rgba(123, 108, 246, 0.35);
 }
 
+/* ─── Word download ─────────────────────────────────────────────── */
+.downloadRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.downloadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(123, 108, 246, 0.08), rgba(123, 108, 246, 0.03));
+  border: 1px solid rgba(123, 108, 246, 0.2);
+  border-radius: var(--radius-sm, 8px);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.downloadBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(123, 108, 246, 0.15), rgba(123, 108, 246, 0.06));
+  border-color: rgba(123, 108, 246, 0.35);
+}
+
+.downloadBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ─── Zoho CRM ──────────────────────────────────────────────────── */
 .zohoSection {
   background: var(--color-bg-secondary);
