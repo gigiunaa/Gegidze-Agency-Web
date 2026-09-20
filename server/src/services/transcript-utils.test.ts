@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { linesToSegments, assignSpeakers } from './transcript-utils';
+import { linesToSegments, assignSpeakers, assignSpeakersWithTracks } from './transcript-utils';
 
 // ── linesToSegments ─────────────────────────────────────────────────────────
 
@@ -108,6 +108,52 @@ test('does not match text from far away in the call', () => {
   ];
 
   const segments = assignSpeakers([{ start: 301, end: 302, text: 'კი, კარგი.' }], captioned, 'Participant');
+
+  assert.equal(segments[0].speaker, 'Akaki');
+});
+
+// ── assignSpeakersWithTracks ────────────────────────────────────────────────
+
+const captionsFromCall = [
+  { name: 'Akaki', start: 38, end: 46, text: 'თქვენ დაგეხარჯებათ ტოკენები და რაღაცეები ხო ჰო კიდიათ ეგ ტოკენები მთავარია იმუშაოს რა' },
+];
+// When the others' track carried sound (seconds from recording start)
+const othersTalking = [{ start: 38, end: 41 }, { start: 47, end: 50 }];
+
+test('a line said while the others were silent belongs to the owner, whatever the captions say', () => {
+  const segments = assignSpeakersWithTracks(
+    [{ start: 42, end: 46, text: 'ჰო, კიდიათ ეგ ტოკენები. მთავარია იმუშაოს რა.' }],
+    captionsFromCall, 'gigi', othersTalking,
+  );
+
+  assert.equal(segments[0].speaker, 'gigi');
+});
+
+test('a line said while the others were talking takes its name from the captions', () => {
+  const segments = assignSpeakersWithTracks(
+    [{ start: 38, end: 41, text: 'თქვენ დაგეხარჯებათ ტოკენები და რაღაცეები, ხო?' }],
+    captionsFromCall, 'gigi', othersTalking,
+  );
+
+  assert.equal(segments[0].speaker, 'Akaki');
+});
+
+test('others talking without captions are labelled Participant', () => {
+  const segments = assignSpeakersWithTracks(
+    [{ start: 47, end: 50, text: 'ვა, თან ჩარტა აქვთ.' }],
+    [], 'gigi', othersTalking,
+  );
+
+  assert.equal(segments[0].speaker, 'Participant');
+});
+
+test('captions that Google gave to the owner never name the others', () => {
+  // The owner's mic heard Akaki through the speakers, so Google captioned his words as "gigi"
+  const segments = assignSpeakersWithTracks(
+    [{ start: 47, end: 50, text: 'ვა, თან ჩარტა აქვთ.' }],
+    [{ name: 'gigi', start: 47, end: 51, text: 'ვა თან ჩარტა აქვთ' }, { name: 'Akaki', start: 30, end: 46, text: 'რაღაც სხვა' }],
+    'gigi', othersTalking,
+  );
 
   assert.equal(segments[0].speaker, 'Akaki');
 });

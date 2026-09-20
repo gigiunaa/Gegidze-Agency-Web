@@ -114,3 +114,32 @@ function speakerFor(seg: TranscriptSegment, timeline: SpeakerInterval[]): string
   if (nearest && nearestGap <= NEAREST_SPEAKER_SECONDS) return nearest.name;
   return null;
 }
+
+// A segment counts as "the others were talking" when at least this share of it had sound on their track
+const OTHERS_ACTIVE_SHARE = 0.3;
+
+function overlapWith(seg: TranscriptSegment, intervals: { start: number; end: number }[]): number {
+  let total = 0;
+  for (const i of intervals) total += Math.max(0, Math.min(seg.end, i.end) - Math.max(seg.start, i.start));
+  return total;
+}
+
+// Speaker per segment, using what the two recordings know that the captions do not:
+// the others' track never carries the owner's voice (Meet does not play it back), so a line
+// said while that track was silent is the owner's — even when Google, hearing the owner
+// through somebody's speakers, captioned it under another name. Lines said while the others
+// were talking are named from the captions, ignoring any caption Google gave to the owner.
+export function assignSpeakersWithTracks(
+  segments: TranscriptSegment[],
+  captions: SpeakerInterval[],
+  ownerName: string,
+  othersTalking: { start: number; end: number }[],
+): TranscriptSegment[] {
+  const othersCaptions = captions.filter(c => c.name !== ownerName);
+  return segments.map(seg => {
+    const duration = Math.max(seg.end - seg.start, 0.5);
+    const othersWereTalking = overlapWith(seg, othersTalking) >= OTHERS_ACTIVE_SHARE * duration;
+    if (!othersWereTalking) return { ...seg, speaker: ownerName };
+    return { ...seg, speaker: speakerFor(seg, othersCaptions) ?? 'Participant' };
+  });
+}

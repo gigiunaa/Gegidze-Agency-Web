@@ -5,7 +5,7 @@ import type { DatabaseService } from './database';
 import { config } from '../config';
 import { transcribeWithGemini, type TranscriptResult } from './gemini';
 import { splitAudio, removeChunks, isSilent, mixTracks, speechIntervals } from './audio-chunks';
-import { assignSpeakers } from './transcript-utils';
+import { assignSpeakers, assignSpeakersWithTracks } from './transcript-utils';
 
 // Each recording is transcribed in 10-minute pieces
 const CHUNK_SECONDS = 600;
@@ -43,9 +43,17 @@ export class TranscriptionService {
       console.log(hasOthers ? 'Transcribing the mixed call audio...' : 'Transcribing mic audio (nobody else recorded)...');
       const result = await this.transcribeTrack(mixedPath ?? recording.filePath);
 
-      // Who spoke when: Meet's captions carry names; failing that, which track had sound
-      const timeline = await this.speakerTimeline(recording.captions ?? [], ownerName, recording.filePath, hasOthers ? speakerPath : null);
-      const segments = assignSpeakers(result.segments, timeline, hasOthers ? 'Participant' : ownerName);
+      // Who said what. With the others' track we know for certain when the owner was the only
+      // one talking; the captions then name the others. Without it, captions alone decide.
+      const captions = this.namedCaptions(recording.captions ?? [], ownerName);
+      let segments;
+      if (hasOthers) {
+        const othersTalking = await speechIntervals(speakerPath!);
+        console.log(`Others' track: ${othersTalking.length} stretches of sound`);
+        segments = assignSpeakersWithTracks(result.segments, captions, ownerName, othersTalking);
+      } else {
+        segments = assignSpeakers(result.segments, captions, ownerName);
+      }
 
       const fullText = segments.map(seg => `[${seg.speaker}] ${seg.text}`).join('\n');
       await this.db.createTranscription({
@@ -63,21 +71,12 @@ export class TranscriptionService {
     }
   }
 
-  // Captions name everyone (the local user appears as "You"). Without captions, the two
-  // tracks still tell the owner apart from the others.
-  private async speakerTimeline(captions: SpeakerInterval[], ownerName: string, micPath: string, speakerPath: string | null): Promise<SpeakerInterval[]> {
-    if (captions.length > 0) {
-      const named = captions.map(c => ({ ...c, name: LOCAL_USER_CAPTION_NAMES.has(c.name) ? ownerName : c.name }));
-      const withText = named.filter(c => c.text).length;
-      console.log(`Speaker names from captions: ${named.length} intervals, ${new Set(named.map(c => c.name)).size} people, ${withText} with text`);
-      return named;
-    }
-
-    console.log('No captions — telling speakers apart by which track had sound');
-    const mine = (await speechIntervals(micPath)).map(i => ({ ...i, name: ownerName }));
-    const theirs = speakerPath ? (await speechIntervals(speakerPath)).map(i => ({ ...i, name: 'Participant' })) : [];
-    // The others' track is the cleaner source: the mic also hears them through the speakers
-    return [...theirs, ...mine];
+  // Captions label the local user "You" (localised); everyone else appears by name
+  private namedCaptions(captions: SpeakerInterval[], ownerName: string): SpeakerInterval[] {
+    const named = captions.map(c => ({ ...c, name: LOCAL_USER_CAPTION_NAMES.has(c.name) ? ownerName : c.name }));
+    const withText = named.filter(c => c.text).length;
+    console.log(`Captions: ${named.length} intervals, ${new Set(named.map(c => c.name)).size} people, ${withText} with text`);
+    return named;
   }
 
   // Transcribe one audio file chunk by chunk, with segment times relative to the whole file
