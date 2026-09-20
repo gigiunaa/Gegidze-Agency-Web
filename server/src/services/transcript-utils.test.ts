@@ -1,23 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { transcriptSimilarity, linesToSegments, assignSpeakers } from './transcript-utils';
-
-// ── transcriptSimilarity ────────────────────────────────────────────────────
-
-test('different Georgian transcripts are not treated as duplicates', () => {
-  const mic = 'გამარჯობა, როგორ ხარ?';
-  const speaker = 'დღეს კარგი ამინდია.';
-
-  assert.ok(transcriptSimilarity(mic, speaker) < 0.8);
-});
-
-test('the same Georgian transcript is a duplicate regardless of punctuation', () => {
-  assert.equal(transcriptSimilarity('გამარჯობა, როგორ ხარ?', 'გამარჯობა როგორ ხარ'), 1);
-});
-
-test('the same English transcript is a duplicate regardless of case and punctuation', () => {
-  assert.equal(transcriptSimilarity('Hello, how are you?', 'hello how are you'), 1);
-});
+import { linesToSegments, assignSpeakers } from './transcript-utils';
 
 // ── linesToSegments ─────────────────────────────────────────────────────────
 

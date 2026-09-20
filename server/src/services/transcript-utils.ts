@@ -7,23 +7,6 @@ export interface TimedLine {
   text: string;
 }
 
-// Word-overlap similarity (0..1) between two transcripts, ignoring case and punctuation.
-// Unicode-aware so non-Latin scripts (Georgian) are compared, not stripped.
-export function transcriptSimilarity(textA: string, textB: string): number {
-  const a = textA.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').trim();
-  const b = textB.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').trim();
-  if (!a && !b) return 1;
-  if (!a || !b) return 0;
-  const wordsA = new Set(a.split(/\s+/));
-  const wordsB = new Set(b.split(/\s+/));
-  let overlap = 0;
-  for (const w of wordsA) {
-    if (wordsB.has(w)) overlap++;
-  }
-  const total = Math.max(wordsA.size, wordsB.size);
-  return total === 0 ? 1 : overlap / total;
-}
-
 // "MM:SS" / "H:MM:SS" → seconds, or null if unreadable
 function parseTimestamp(value: string): number | null {
   if (!/^\d+(:\d{1,2}){1,2}$/.test(value.trim())) return null;

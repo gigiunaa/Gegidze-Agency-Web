@@ -63,3 +63,71 @@ export async function isSilent(filePath: string, ffmpegPath = DEFAULT_FFMPEG): P
     return false;
   }
 }
+
+// Mix the microphone and the tab audio into one recording, so the call is transcribed once.
+// Written next to the mic file; the caller removes it when done.
+export async function mixTracks(micPath: string, speakerPath: string, ffmpegPath = DEFAULT_FFMPEG): Promise<string> {
+  const outPath = micPath.replace(/(\.[a-z0-9]+)?$/i, '-mixed.webm');
+  await execFileAsync(ffmpegPath, [
+    '-v', 'error',
+    '-i', micPath,
+    '-i', speakerPath,
+    '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=longest:normalize=0[a]',
+    '-map', '[a]',
+    '-c:a', 'libopus',
+    '-b:a', '64k',
+    '-y', outPath,
+  ]);
+  return outPath;
+}
+
+// Quieter than this counts as a pause between utterances
+const SPEECH_SILENCE_DB = -35;
+const SPEECH_MIN_PAUSE_SECONDS = 0.6;
+
+export interface SpeechInterval {
+  start: number;
+  end: number;
+}
+
+// When somebody is talking on a track (seconds from its start), from the gaps ffmpeg's
+// silencedetect reports. Used to tell the two tracks' speakers apart when captions are missing.
+export async function speechIntervals(filePath: string, ffmpegPath = DEFAULT_FFMPEG): Promise<SpeechInterval[]> {
+  const { stderr } = await execFileAsync(ffmpegPath, [
+    '-i', filePath,
+    '-af', `silencedetect=noise=${SPEECH_SILENCE_DB}dB:d=${SPEECH_MIN_PAUSE_SECONDS}`,
+    '-f', 'null', '-',
+  ]);
+
+  // MediaRecorder's webm carries no Duration header, so fall back to how far ffmpeg actually decoded
+  const toSeconds = (h: string, m: string, s: string) => Number(h) * 3600 + Number(m) * 60 + Number(s);
+  const duration = (() => {
+    const header = stderr.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+    if (header) return toSeconds(header[1], header[2], header[3]);
+    const progress = [...stderr.matchAll(/time=(\d+):(\d+):([\d.]+)/g)].pop();
+    return progress ? toSeconds(progress[1], progress[2], progress[3]) : null;
+  })();
+  const silences: { start: number; end: number }[] = [];
+  let openStart: number | null = null;
+  for (const line of stderr.split('\n')) {
+    const s = line.match(/silence_start:\s*(-?[\d.]+)/);
+    const e = line.match(/silence_end:\s*(-?[\d.]+)/);
+    if (s) openStart = Number(s[1]);
+    if (e && openStart !== null) {
+      silences.push({ start: openStart, end: Number(e[1]) });
+      openStart = null;
+    }
+  }
+  // Silence still open at the end of the file
+  if (openStart !== null && duration !== null) silences.push({ start: openStart, end: duration });
+
+  // Speech is everything between the silences
+  const intervals: SpeechInterval[] = [];
+  let cursor = 0;
+  for (const gap of silences) {
+    if (gap.start - cursor > 0.2) intervals.push({ start: cursor, end: gap.start });
+    cursor = gap.end;
+  }
+  if (duration !== null && duration - cursor > 0.2) intervals.push({ start: cursor, end: duration });
+  return intervals;
+}
