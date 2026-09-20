@@ -74,6 +74,8 @@ export interface SpeakerInterval {
   name: string;
   start: number;
   end: number;
+  // Google's own caption for that turn, used to match transcript lines to their speaker
+  text?: string;
 }
 
 // ─── Transcription ──────────────────────────────────────────────────

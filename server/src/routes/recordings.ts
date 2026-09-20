@@ -20,7 +20,7 @@ function parseCaptions(raw: unknown): SpeakerInterval[] {
     return parsed
       .filter((c): c is SpeakerInterval =>
         c && typeof c.name === 'string' && c.name.trim() !== '' && Number.isFinite(c.start) && Number.isFinite(c.end) && c.end >= c.start)
-      .map(c => ({ name: c.name.trim(), start: c.start, end: c.end }));
+      .map(c => ({ name: c.name.trim(), start: c.start, end: c.end, ...(typeof c.text === 'string' && c.text.trim() ? { text: c.text.trim() } : {}) }));
   } catch {
     return [];
   }

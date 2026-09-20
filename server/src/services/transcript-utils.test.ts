@@ -84,3 +84,30 @@ test('keeps the segments unchanged apart from the speaker', () => {
 
   assert.deepEqual(segments, [{ start: 1, end: 4, text: 'გამარჯობა.', speaker: 'გიორგი' }]);
 });
+
+test('matches by what was said when the captions carry text', () => {
+  // Akaki's caption block keeps growing while Gigi's short question sits inside it in time;
+  // the words decide, not the overlap
+  const captioned = [
+    { name: 'Akaki', start: 10, end: 40, text: 'ტიპმა მთლიანი ფილმი გააკეთა რა მოკლემეტრაჟიანი ფილმები რო არის ხოლმე გავგიჟდი ორი ცალი ფილმი გააკეთა' },
+    { name: 'gigi', start: 31, end: 33, text: 'ფილმი გააკეთა?' },
+  ];
+
+  const segments = assignSpeakers([
+    { start: 29, end: 30, text: 'ფილმი გააკეთა?' },
+    { start: 31, end: 36, text: 'ფილმი გააკეთა, ორი ცალი ფილმი გააკეთა წარმოიდგინე, მოკლემეტრაჟიანი.' },
+  ], captioned, 'Participant');
+
+  assert.deepEqual(segments.map(s => s.speaker), ['gigi', 'Akaki']);
+});
+
+test('does not match text from far away in the call', () => {
+  const captioned = [
+    { name: 'gigi', start: 5, end: 7, text: 'კი, კარგი.' },
+    { name: 'Akaki', start: 300, end: 302, text: 'კი, კარგი.' },
+  ];
+
+  const segments = assignSpeakers([{ start: 301, end: 302, text: 'კი, კარგი.' }], captioned, 'Participant');
+
+  assert.equal(segments[0].speaker, 'Akaki');
+});

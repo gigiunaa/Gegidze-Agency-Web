@@ -53,7 +53,7 @@ setInterval(() => {
 // we only keep track of WHO spoke WHEN (not Google's text); the server matches these times with
 // the Gemini transcript to put names on the transcript lines.
 let captionTimer = null;
-let captionIntervals = [];               // finalized { name, start, end } in seconds from recording start
+let captionIntervals = [];               // finalized { name, start, end, text } in seconds from recording start
 const activeCaptionBlocks = new Map();   // caption DOM block -> { name, text, start, end }
 
 function turnOnCaptions() {
@@ -119,7 +119,7 @@ function pollCaptions() {
     } else if (entry.text !== text || entry.name !== name) {
       // Meet keeps appending to the same block while the person talks; a much shorter text means it started over
       if (text.length < entry.text.length - 250) {
-        captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
+        captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end, text: entry.text });
         entry.start = now;
       }
       entry.name = name;
@@ -131,7 +131,7 @@ function pollCaptions() {
   // Blocks that disappeared or went quiet are finished
   for (const [element, entry] of activeCaptionBlocks) {
     if (!seen.has(element) || now - entry.end > 8) {
-      captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
+      captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end, text: entry.text });
       activeCaptionBlocks.delete(element);
     }
   }
@@ -187,7 +187,7 @@ function stopCaptionTracking() {
   if (captionTimer) { clearInterval(captionTimer); captionTimer = null; }
   hideMeetCaptions(false);
   for (const entry of activeCaptionBlocks.values()) {
-    captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end });
+    captionIntervals.push({ name: entry.name, start: entry.start, end: entry.end, text: entry.text });
   }
   activeCaptionBlocks.clear();
   const intervals = captionIntervals.filter(c => c.end > c.start);
