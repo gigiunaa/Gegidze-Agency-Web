@@ -24,7 +24,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       stopRecording();
       break;
     case 'RECORDING_ERROR':
-      showNotification(`Gegidze: ${msg.message}`, 'error');
+      showNotification(`Unitty: ${msg.message}`, 'error');
       break;
   }
 });
@@ -200,7 +200,7 @@ function stopCaptionTracking() {
 }
 
 // ── Chat notice ───────────────────────────────────────────────────────────
-const CHAT_NOTICE = 'Hi everyone, this is an automated message: Gegidze Recorder is transcribing this meeting for me so I can give my full attention to you.';
+const CHAT_NOTICE = 'Hi everyone, this is an automated message: Unitty Recorder is transcribing this meeting for me so I can give my full attention to you.';
 
 function symbolButton(iconText) {
   const icon = Array.from(document.querySelectorAll('.google-symbols')).find(i => i.textContent.trim() === iconText);
@@ -324,7 +324,7 @@ async function startRecording(meetingId, streamIdError) {
     if (streamIdError) {
       tabCaptureError = streamIdError;
       showNotification(
-        `Gegidze: ONLY YOUR VOICE is being recorded — ${streamIdError}`,
+        `Unitty: ONLY YOUR VOICE is being recorded — ${streamIdError}`,
         'error',
       );
     }
@@ -349,11 +349,11 @@ async function startRecording(meetingId, streamIdError) {
       }, (response) => {
         if (chrome.runtime.lastError || !response) {
           // Background worker gave no answer — the upload may not have happened
-          showNotification(`Gegidze: Upload not confirmed — ${chrome.runtime.lastError?.message || 'no response'}. Check the dashboard.`, 'error');
+          showNotification(`Unitty: Upload not confirmed — ${chrome.runtime.lastError?.message || 'no response'}. Check the dashboard.`, 'error');
         } else if (response.error) {
-          showNotification(`Gegidze: Upload failed — ${response.error}`, 'error');
+          showNotification(`Unitty: Upload failed — ${response.error}`, 'error');
         } else {
-          showNotification('Gegidze: Recording uploaded. Transcript is being created.', 'success');
+          showNotification('Unitty: Recording uploaded. Transcript is being created.', 'success');
         }
       });
 
@@ -374,7 +374,7 @@ async function startRecording(meetingId, streamIdError) {
     setTimeout(() => showCrmNotice(meetingId), 4000);
   } catch (err) {
     console.error('[Gegidze] Recording failed:', err);
-    alert('Gegidze: Microphone access denied. Please allow microphone access and try again.');
+    alert('Unitty: Microphone access denied. Please allow microphone access and try again.');
   }
 }
 
@@ -406,7 +406,7 @@ function showCallBanner(platform) {
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
         <span style="font-size: 22px;">🎙️</span>
         <div>
-          <div style="font-weight: 700; font-size: 15px;">Gegidze Recorder</div>
+          <div style="font-weight: 700; font-size: 15px;">Unitty Recorder</div>
           <div style="color: #555570; font-size: 12px; margin-top: 2px;">${platform} call detected</div>
         </div>
         <button id="gegidze-close" style="
@@ -415,7 +415,7 @@ function showCallBanner(platform) {
         ">✕</button>
       </div>
       <p style="color: #141428; font-size: 13px; line-height: 1.6; margin: 0;">
-        Click the <strong>Gegidze icon</strong> in the toolbar to record this call.
+        Click the <strong>Unitty icon</strong> in the toolbar to record this call.
       </p>
     </div>
     <style>

@@ -53,7 +53,7 @@ export async function buildTranscriptDocx(meeting: Meeting, transcription: Trans
   }
 
   const header = [
-    new Paragraph({ children: [run('GEGIDZE MEETING RECORDER', { color: ACCENT, bold: true, size: 16, characterSpacing: 40 })], spacing: { after: 120 } }),
+    new Paragraph({ children: [run('UNITTY MEETING RECORDER', { color: ACCENT, bold: true, size: 16, characterSpacing: 40 })], spacing: { after: 120 } }),
     new Paragraph({ text: meeting.title, heading: HeadingLevel.TITLE, spacing: { after: 80 } }),
     new Paragraph({
       children: [run(date, { color: MUTED }), ...(duration ? [run(`  ·  ${duration}`, { color: MUTED })] : [])],
@@ -115,7 +115,7 @@ export async function buildTranscriptDocx(meeting: Meeting, transcription: Trans
   ];
 
   const doc = new Document({
-    creator: 'Gegidze Meeting Recorder',
+    creator: 'Unitty Meeting Recorder',
     title: meeting.title,
     styles: {
       default: { document: { run: { font: 'Calibri', size: 22, color: TEXT } } },

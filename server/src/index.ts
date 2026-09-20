@@ -109,7 +109,7 @@ app.get('*', (_req, res) => {
 // Start server first, then init database
 async function start() {
   const server = app.listen(config.port, () => {
-    console.log(`Gegidze Agency API running on port ${config.port}`);
+    console.log(`Unitty Recorder API running on port ${config.port}`);
   });
 
   try {

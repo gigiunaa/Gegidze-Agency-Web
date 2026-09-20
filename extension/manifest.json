@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Gegidze Meeting Recorder",
+  "name": "Unitty Meeting Recorder",
   "version": "1.2.0",
   "description": "Record Google Meet, Zoom and Zoho calls and turn them into transcripts",
   "permissions": [

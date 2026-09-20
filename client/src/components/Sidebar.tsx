@@ -40,8 +40,8 @@ export function Sidebar() {
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div>
         <div className={styles.brand}>
-          <div className={styles.logo}>G</div>
-          {!collapsed && <span className={styles.brandName}>Gegidze</span>}
+          <div className={styles.logo}>U</div>
+          {!collapsed && <span className={styles.brandName}>Unitty</span>}
           <button
             className={styles.collapseBtn}
             onClick={() => setCollapsed(!collapsed)}

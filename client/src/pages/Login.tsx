@@ -34,7 +34,7 @@ export function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Gegidze <span className={styles.accent}>Agency</span></h1>
+        <h1 className={styles.title}>Unitty <span className={styles.accent}>Recorder</span></h1>
         <p className={styles.subtitle}>AI-Powered Meeting Intelligence</p>
 
         <div className={styles.tabs}>
@@ -86,7 +86,7 @@ export function LoginPage() {
           </button>
         </form>
 
-        <p className={styles.footer}>© Gegidze</p>
+        <p className={styles.footer}>© Unitty</p>
       </div>
     </div>
   );
