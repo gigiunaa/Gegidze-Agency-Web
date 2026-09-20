@@ -68,7 +68,8 @@ export class TranscriptionService {
   private async speakerTimeline(captions: SpeakerInterval[], ownerName: string, micPath: string, speakerPath: string | null): Promise<SpeakerInterval[]> {
     if (captions.length > 0) {
       const named = captions.map(c => ({ ...c, name: LOCAL_USER_CAPTION_NAMES.has(c.name) ? ownerName : c.name }));
-      console.log(`Speaker names from captions: ${named.length} intervals, ${new Set(named.map(c => c.name)).size} people`);
+      const withText = named.filter(c => c.text).length;
+      console.log(`Speaker names from captions: ${named.length} intervals, ${new Set(named.map(c => c.name)).size} people, ${withText} with text`);
       return named;
     }
 
