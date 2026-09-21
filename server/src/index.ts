@@ -26,6 +26,10 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
   ALLOWED_ORIGINS.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
 }
 
+// The extension uploads a call straight from the meeting page: handing a long recording through
+// the background worker first was too much data for it to carry.
+const CALL_PAGE_ORIGINS = /^https:\/\/(meet\.google\.com|[a-z0-9-]+\.zoom\.us|[a-z0-9-]+\.zoho\.(com|eu))$/;
+
 app.use(cors({
   credentials: true,
   origin: (origin, callback) => {
@@ -33,6 +37,7 @@ app.use(cors({
       !origin ||
       origin.startsWith('http://localhost:') ||
       origin.startsWith('chrome-extension://') ||
+      CALL_PAGE_ORIGINS.test(origin) ||
       ALLOWED_ORIGINS.includes(origin)
     ) {
       callback(null, true);

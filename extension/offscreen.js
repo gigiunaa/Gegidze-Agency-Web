@@ -7,6 +7,7 @@ let recorder = null;
 let chunks = [];
 let stream = null;
 let playbackContext = null;
+let recorded = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.target !== 'offscreen') return;
@@ -18,6 +19,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === 'OFFSCREEN_STOP') {
     stopCapture().then(sendResponse, (err) => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (msg.type === 'OFFSCREEN_UPLOAD') {
+    uploadCapture(msg.recordingId, msg.token, msg.apiBase).then(sendResponse, (err) => sendResponse({ error: err.message }));
     return true;
   }
 });
@@ -38,24 +44,41 @@ async function startCapture(streamId) {
   recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
   recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
   recorder.start(1000);
-  console.log('[Gegidze offscreen] capturing tab audio, playback', playbackContext.state);
+  console.log('[Unitty offscreen] capturing tab audio, playback', playbackContext.state);
   return { ok: true };
 }
 
 async function stopCapture() {
-  if (!recorder) return { audio: null };
+  if (!recorder) return { bytes: 0 };
 
   const finished = new Promise((resolve) => { recorder.onstop = resolve; });
   if (recorder.state !== 'inactive') recorder.stop();
   await finished;
 
-  const blob = new Blob(chunks, { type: 'audio/webm' });
-  const audio = blob.size > 0 ? Array.from(new Uint8Array(await blob.arrayBuffer())) : null;
-
+  recorded = new Blob(chunks, { type: 'audio/webm' });
   stream?.getTracks().forEach((t) => t.stop());
   await playbackContext?.close().catch(() => {});
   recorder = null; chunks = []; stream = null; playbackContext = null;
 
-  console.log(`[Gegidze offscreen] stopped, ${audio ? audio.length : 0} bytes`);
-  return { audio };
+  console.log(`[Unitty offscreen] stopped, ${recorded.size} bytes`);
+  return { bytes: recorded.size };
+}
+
+// Uploaded from here rather than handed to the background worker: a long call is far too much
+// data to pass between extension contexts as a message.
+async function uploadCapture(recordingId, token, apiBase) {
+  if (!recorded || recorded.size === 0) return { skipped: 'nothing recorded' };
+
+  const form = new FormData();
+  form.append('speaker', recorded, 'speaker.webm');
+  const res = await fetch(`${apiBase}/recordings/${recordingId}/speaker`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`server said ${res.status}`);
+
+  console.log(`[Unitty offscreen] uploaded ${recorded.size} bytes for recording ${recordingId}`);
+  recorded = null;
+  return { ok: true };
 }

@@ -10,9 +10,19 @@ const CALL_PATTERNS = [
 
 // ── State ─────────────────────────────────────────────────────────────────
 let activeCallTabs = new Map();
-let recordingTabId = null;
-let recordingMeetingId = null;
-let recordingStartTime = null;
+
+// Chrome shuts the background worker down between events — on a long call it is gone long
+// before the user presses stop — so what is being recorded is kept in session storage.
+const NOT_RECORDING = { recordingTabId: null, recordingMeetingId: null, recordingStartTime: null };
+
+async function getRecordingState() {
+  const stored = await chrome.storage.session.get(['recordingTabId', 'recordingMeetingId', 'recordingStartTime']);
+  return { ...NOT_RECORDING, ...stored };
+}
+
+function setRecordingState(state) {
+  return chrome.storage.session.set(state);
+}
 
 // ── Tab monitoring ────────────────────────────────────────────────────────
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -59,16 +69,16 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
     case 'GET_STATE':
-      sendResponse({
-        isRecording: !!recordingTabId,
-        tabId: recordingTabId,
-        meetingId: recordingMeetingId,
-        startTime: recordingStartTime,
+      getRecordingState().then((state) => sendResponse({
+        isRecording: !!state.recordingTabId,
+        tabId: state.recordingTabId,
+        meetingId: state.recordingMeetingId,
+        startTime: state.recordingStartTime,
         activeCalls: Array.from(activeCallTabs.entries()).map(([id, info]) => ({
           tabId: id,
           ...info,
         })),
-      });
+      }));
       return true;
 
     case 'START_RECORDING': {
@@ -77,17 +87,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     case 'STOP_RECORDING': {
-      stopRecording();
-      sendResponse({ ok: true });
+      stopRecording().then(() => sendResponse({ ok: true }));
       return true;
     }
 
-    case 'UPLOAD_AUDIO': {
-      handleUpload(msg.audioData, msg.speakerData, msg.meetingId, msg.tabCaptureError, msg.captions).then(() => {
-        sendResponse({ ok: true });
-      }).catch(e => {
-        sendResponse({ error: e.message });
-      });
+    case 'GET_UPLOAD_INFO': {
+      getAuthToken().then((token) => sendResponse({ token, apiBase: API_BASE }));
+      return true;
+    }
+
+    case 'UPLOAD_SPEAKER': {
+      uploadSpeakerTrack(msg.recordingId).then(sendResponse, (e) => sendResponse({ error: e.message }));
       return true;
     }
 
@@ -125,44 +135,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ── Upload ────────────────────────────────────────────────────────────────
-async function handleUpload(audioData, speakerData, meetingId, tabCaptureError, captions) {
-  // The other participants were recorded outside the tab; collect that side here
-  if (!speakerData) {
-    try {
-      const result = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'OFFSCREEN_STOP' });
-      speakerData = result?.audio ?? null;
-    } catch (e) {
-      console.warn('[Gegidze] No audio from the offscreen recorder:', e.message);
-    }
+// The other participants were recorded in the offscreen document, which uploads them itself:
+// a long recording is far too much data to pass between extension contexts as a message.
+async function uploadSpeakerTrack(recordingId) {
+  const token = await getAuthToken();
+  if (!token || !recordingId) return { error: 'Not authenticated' };
+
+  try {
+    await chrome.runtime.sendMessage({ target: 'offscreen', type: 'OFFSCREEN_STOP' });
+    const result = await chrome.runtime.sendMessage({
+      target: 'offscreen', type: 'OFFSCREEN_UPLOAD', recordingId, token, apiBase: API_BASE,
+    });
+    if (result?.error) console.warn('[Unitty] Upload of the other participants failed:', result.error);
+    return result ?? {};
+  } catch (e) {
+    console.warn('[Unitty] Offscreen recorder unavailable:', e.message);
+    return { error: e.message };
+  } finally {
     await chrome.offscreen.closeDocument().catch(() => {});
   }
-
-  const token = await getAuthToken();
-  if (!token || !meetingId) throw new Error('Not authenticated');
-
-  const micBlob = new Blob([new Uint8Array(audioData)], { type: 'audio/webm' });
-  console.log(`[Gegidze] Uploading mic: ${micBlob.size} bytes for meeting ${meetingId}`);
-
-  const formData = new FormData();
-  formData.append('meetingId', meetingId);
-  if (tabCaptureError) formData.append('tabCaptureError', tabCaptureError);
-  if (Array.isArray(captions) && captions.length > 0) formData.append('captions', JSON.stringify(captions));
-  formData.append('mic', micBlob, 'recording.webm');
-
-  if (speakerData) {
-    const speakerBlob = new Blob([new Uint8Array(speakerData)], { type: 'audio/webm' });
-    formData.append('speaker', speakerBlob, 'speaker.webm');
-    console.log(`[Gegidze] Also uploading speaker: ${speakerBlob.size} bytes`);
-  }
-
-  const res = await fetch(`${API_BASE}/recordings/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  });
-
-  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-  console.log(`[Gegidze] Upload complete for meeting ${meetingId}`);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -191,7 +182,7 @@ async function apiRequest(path, method, body, token) {
 // Chrome only allows capturing a tab's audio right after the user clicked the extension on that
 // tab, so recording always starts from the toolbar icon (see chrome.action.onClicked below).
 async function startRecording(tabId) {
-  const callInfo = activeCallTabs.get(tabId) || { platform: 'Unknown' };
+  const callInfo = await callInfoFor(tabId);
   const token = await getAuthToken();
   if (!token) return { error: 'Not logged in' };
 
@@ -203,7 +194,7 @@ async function startRecording(tabId) {
       try {
         await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
       } catch (injectErr) {
-        console.warn('[Gegidze] Content script injection:', injectErr.message);
+        console.warn('[Unitty] Content script injection:', injectErr.message);
       }
     }
 
@@ -222,7 +213,7 @@ async function startRecording(tabId) {
       if (started?.error) throw new Error(started.error);
     } catch (tabErr) {
       // Without this stream the other participants are not recorded at all, so say so loudly
-      console.warn('[Gegidze] Tab capture not available:', tabErr.message);
+      console.warn('[Unitty] Tab capture not available:', tabErr.message);
       tabCaptureError = tabErr.message;
     }
 
@@ -237,9 +228,7 @@ async function startRecording(tabId) {
       meetUrl: callInfo.url,
     }, token);
 
-    recordingTabId = tabId;
-    recordingMeetingId = meeting.id;
-    recordingStartTime = Date.now();
+    await setRecordingState({ recordingTabId: tabId, recordingMeetingId: meeting.id, recordingStartTime: Date.now() });
 
     chrome.tabs.sendMessage(tabId, {
       type: 'START_RECORDING',
@@ -251,22 +240,19 @@ async function startRecording(tabId) {
     chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
     return { ok: true, meetingId: meeting.id };
   } catch (e) {
-    console.error('[Gegidze] Could not start recording:', e);
+    console.error('[Unitty] Could not start recording:', e);
     return { error: e.message };
   }
 }
 
-function stopRecording() {
-  const stoppedTabId = recordingTabId;
-  const stoppedMeetingId = recordingMeetingId;
+async function stopRecording() {
+  const { recordingTabId: stoppedTabId, recordingMeetingId: stoppedMeetingId } = await getRecordingState();
 
   if (stoppedTabId) {
     chrome.tabs.sendMessage(stoppedTabId, { type: 'STOP_RECORDING' }).catch(() => {});
   }
 
-  recordingTabId = null;
-  recordingMeetingId = null;
-  recordingStartTime = null;
+  await setRecordingState(NOT_RECORDING);
 
   chrome.action.setBadgeText({ text: activeCallTabs.size > 0 ? '●' : '' });
   chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
@@ -281,7 +267,7 @@ function stopRecording() {
           body: JSON.stringify({ status: 'processing' }),
         });
       } catch (e) {
-        console.error('[Gegidze] Failed to update meeting status:', e);
+        console.error('[Unitty] Failed to update meeting status:', e);
       }
     });
   }
@@ -292,13 +278,14 @@ function stopRecording() {
 // Everywhere else the popup opens as usual (login, settings).
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id) return;
+  const { recordingTabId } = await getRecordingState();
   if (recordingTabId === tab.id) {
-    stopRecording();
+    await stopRecording();
     return;
   }
   const result = await startRecording(tab.id);
   if (result.error) {
-    console.warn('[Gegidze]', result.error);
+    console.warn('[Unitty]', result.error);
     chrome.tabs.sendMessage(tab.id, { type: 'RECORDING_ERROR', message: result.error }).catch(() => {});
   }
 });
@@ -317,6 +304,23 @@ chrome.storage.onChanged.addListener((changes) => {
   if (!changes.authToken) return;
   for (const tabId of activeCallTabs.keys()) refreshIconBehaviour(tabId);
 });
+
+// What call is open in this tab. The map is lost whenever Chrome restarts the worker, so the
+// tab's own address is the source of truth — without it a call would lose its Calendar invite.
+async function callInfoFor(tabId) {
+  const known = activeCallTabs.get(tabId);
+  if (known) return known;
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const match = CALL_PATTERNS.find(p => p.pattern.test(tab.url || ''));
+    if (match) {
+      const info = { platform: match.platform, url: tab.url };
+      activeCallTabs.set(tabId, info);
+      return info;
+    }
+  } catch { /* tab gone */ }
+  return { platform: 'Unknown' };
+}
 
 // ── Offscreen document ────────────────────────────────────────────────────
 async function ensureOffscreen() {

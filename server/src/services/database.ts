@@ -256,6 +256,14 @@ export class DatabaseService {
     return (await this.getRecording(id))!;
   }
 
+  // The other participants' track arrives in its own request, after the microphone one
+  async setRecordingSpeakerFile(id: string, speakerFilePath: string, extraBytes: number): Promise<void> {
+    await this.queryWithRetry(
+      'UPDATE recordings SET speaker_file_path = $1, file_size = file_size + $2 WHERE id = $3',
+      [speakerFilePath, extraBytes, id],
+    );
+  }
+
   async getRecording(id: string): Promise<Recording | null> {
     const res = await this.queryWithRetry('SELECT * FROM recordings WHERE id = $1', [id]);
     return res.rows[0] ? this.rowToRecording(res.rows[0]) : null;

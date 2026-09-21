@@ -29,6 +29,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+function sendToBackground(message) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) resolve({});
+      else resolve(response || {});
+    });
+  });
+}
+
 // ── Call detection ────────────────────────────────────────────────────────
 // Meet shows a "call_end" (red phone) icon only while you are in the call. The icon name is
 // the same in every UI language, unlike button labels.
@@ -62,7 +71,7 @@ function turnOnCaptions() {
   const button = icon?.closest('button');
   if (button) {
     button.click();
-    console.log('[Gegidze] Captions turned on');
+    console.log('[Unitty] Captions turned on');
   }
 }
 
@@ -191,10 +200,10 @@ function stopCaptionTracking() {
   }
   activeCaptionBlocks.clear();
   const intervals = captionIntervals.filter(c => c.end > c.start);
-  console.log(`[Gegidze] Captions: ${intervals.length} speaker intervals, ${new Set(intervals.map(c => c.name)).size} people`);
+  console.log(`[Unitty] Captions: ${intervals.length} speaker intervals, ${new Set(intervals.map(c => c.name)).size} people`);
   if (intervals.length === 0) {
     const region = captionsRegion();
-    console.warn('[Gegidze] No speaker names were read. Captions region:', region ? region.innerHTML.slice(0, 1500) : 'not found');
+    console.warn('[Unitty] No speaker names were read. Captions region:', region ? region.innerHTML.slice(0, 1500) : 'not found');
   }
   return intervals;
 }
@@ -221,11 +230,11 @@ function waitFor(check, timeoutMs) {
 async function postChatNotice() {
   try {
     const chatButton = symbolButton('chat');
-    if (!chatButton) return console.warn('[Gegidze] Chat button not found');
+    if (!chatButton) return console.warn('[Unitty] Chat button not found');
     chatButton.click();
 
     const input = await waitFor(() => Array.from(document.querySelectorAll('textarea')).find(t => t.offsetParent !== null), 5000);
-    if (!input) return console.warn('[Gegidze] Chat input not found');
+    if (!input) return console.warn('[Unitty] Chat input not found');
 
     input.focus();
     // Meet's input is framework-controlled: set the value through the native setter so it notices the change
@@ -239,12 +248,12 @@ async function postChatNotice() {
     } else {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
     }
-    console.log('[Gegidze] Chat notice sent');
+    console.log('[Unitty] Chat notice sent');
 
     await new Promise(r => setTimeout(r, 800));
     chatButton.click();
   } catch (err) {
-    console.warn('[Gegidze] Chat notice failed:', err.message);
+    console.warn('[Unitty] Chat notice failed:', err.message);
   }
 }
 
@@ -310,7 +319,7 @@ async function startRecording(meetingId, streamIdError) {
         sampleRate: 48000,
       },
     });
-    console.log('[Gegidze] Mic stream obtained');
+    console.log('[Unitty] Mic stream obtained');
 
     mediaRecorder = new MediaRecorder(micStream, {
       mimeType: 'audio/webm;codecs=opus',
@@ -330,42 +339,50 @@ async function startRecording(meetingId, streamIdError) {
     }
 
     // When mic recording stops, upload both tracks
+    // The recording goes to the server straight from this page: passing a long call through
+    // the extension's background worker meant serialising megabytes of audio, which failed.
     mediaRecorder.onstop = async () => {
       const micBlob = new Blob(chunks, { type: 'audio/webm' });
-      console.log(`[Gegidze] Mic: ${micBlob.size} bytes`);
-
-      const micArray = Array.from(new Uint8Array(await micBlob.arrayBuffer()));
-      const speakerArray = null;
       const savedMeetingId = currentMeetingId;
       const captions = stopCaptionTracking();
-
-      chrome.runtime.sendMessage({
-        type: 'UPLOAD_AUDIO',
-        audioData: micArray,
-        speakerData: speakerArray,
-        meetingId: savedMeetingId,
-        tabCaptureError,
-        captions,
-      }, (response) => {
-        if (chrome.runtime.lastError || !response) {
-          // Background worker gave no answer — the upload may not have happened
-          showNotification(`Unitty: Upload not confirmed — ${chrome.runtime.lastError?.message || 'no response'}. Check the dashboard.`, 'error');
-        } else if (response.error) {
-          showNotification(`Unitty: Upload failed — ${response.error}`, 'error');
-        } else {
-          showNotification('Unitty: Recording uploaded. Transcript is being created.', 'success');
-        }
-      });
+      console.log(`[Unitty] Mic: ${micBlob.size} bytes`);
 
       micStream?.getTracks().forEach(t => t.stop());
       chunks = [];
       micStream = null;
       currentMeetingId = null;
+
+      try {
+        const { token, apiBase } = await sendToBackground({ type: 'GET_UPLOAD_INFO' });
+        if (!token) throw new Error('not signed in');
+
+        const form = new FormData();
+        form.append('meetingId', savedMeetingId);
+        form.append('mic', micBlob, 'recording.webm');
+        form.append('expectSpeaker', tabCaptureError ? 'false' : 'true');
+        if (tabCaptureError) form.append('tabCaptureError', tabCaptureError);
+        if (captions.length > 0) form.append('captions', JSON.stringify(captions));
+
+        const res = await fetch(`${apiBase}/recordings/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        });
+        if (!res.ok) throw new Error(`server said ${res.status}`);
+        const recording = await res.json();
+
+        showNotification('Unitty: Recording uploaded. Transcript is being created.', 'success');
+        // The other participants were recorded outside this tab; the background sends that part
+        if (!tabCaptureError) sendToBackground({ type: 'UPLOAD_SPEAKER', recordingId: recording.id });
+      } catch (err) {
+        console.error('[Unitty] Upload failed:', err);
+        showNotification(`Unitty: Upload failed — ${err.message}`, 'error');
+      }
     };
 
     mediaRecorder.start(1000);
     recordingStartTime = Date.now();
-    console.log('[Gegidze] Recording started for meeting', meetingId);
+    console.log('[Unitty] Recording started for meeting', meetingId);
 
     removeBanner();
     showRecordingIndicator();
@@ -373,7 +390,7 @@ async function startRecording(meetingId, streamIdError) {
     setTimeout(postChatNotice, 1500);
     setTimeout(() => showCrmNotice(meetingId), 4000);
   } catch (err) {
-    console.error('[Gegidze] Recording failed:', err);
+    console.error('[Unitty] Recording failed:', err);
     alert('Unitty: Microphone access denied. Please allow microphone access and try again.');
   }
 }
@@ -381,7 +398,7 @@ async function startRecording(meetingId, streamIdError) {
 function stopRecording() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
-    console.log('[Gegidze] Recording stopped');
+    console.log('[Unitty] Recording stopped');
   }
   removeRecordingIndicator();
 }
