@@ -30,21 +30,14 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 // the background worker first was too much data for it to carry.
 const CALL_PAGE_ORIGINS = /^https:\/\/(meet\.google\.com|[a-z0-9-]+\.zoom\.us|[a-z0-9-]+\.zoho\.(com|eu))$/;
 
-app.use(cors({
-  credentials: true,
-  origin: (origin, callback) => {
-    if (
-      !origin ||
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('chrome-extension://') ||
-      CALL_PAGE_ORIGINS.test(origin) ||
-      ALLOWED_ORIGINS.includes(origin)
-    ) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
+app.use(cors((req, callback) => {
+  const origin = req.headers.origin;
+  const ownSite = !origin || origin.startsWith('http://localhost:') || ALLOWED_ORIGINS.includes(origin);
+  const extension = !!origin && (origin.startsWith('chrome-extension://') || CALL_PAGE_ORIGINS.test(origin));
+
+  // Cookies are only for this app's own pages. Every request the extension makes carries a
+  // bearer token instead, so a meeting page is never trusted to speak for a signed-in user.
+  callback(null, { origin: ownSite || extension, credentials: ownSite });
 }));
 app.use(express.json({ limit: '50mb' }));
 
