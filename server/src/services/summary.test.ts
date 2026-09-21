@@ -34,7 +34,7 @@ async function withFakeGemini(run: (baseUrl: string, received: { body: string })
   }
 }
 
-const transcript = '[gigi] გამარჯობა, მე გიგი ვარ, Gegidze-ის წარმომადგენელი.\n[ნინო] გამარჯობა, მე ნინო ვარ, მარკეტინგის ხელმძღვანელი.';
+const transcript = '[gigi] გამარჯობა, მე გიგი ვარ, Unitty-ის წარმომადგენელი.\n[ნინო] გამარჯობა, მე ნინო ვარ, მარკეტინგის ხელმძღვანელი.';
 
 test('sends the transcript to the model and returns the notes', async () => {
   await withFakeGemini(async (baseUrl, received) => {

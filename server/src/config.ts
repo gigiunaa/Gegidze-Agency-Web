@@ -7,13 +7,13 @@ import fs from 'fs';
 // In prod: __dirname = server/dist/server/src → root = ../../../..
 function findProjectRoot(): string {
   let dir = __dirname;
-  // Walk up until we find the root package.json (the one with "gegidze-agency-web")
+  // Walk up until we find the root package.json (the one with "unitty-recorder")
   for (let i = 0; i < 10; i++) {
     const pkgPath = path.join(dir, 'package.json');
     if (fs.existsSync(pkgPath)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-        if (pkg.name === 'gegidze-agency-web') return dir;
+        if (pkg.name === 'unitty-recorder') return dir;
       } catch { /* skip */ }
     }
     const parent = path.dirname(dir);
@@ -33,7 +33,7 @@ export const projectRoot = ROOT;
 
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
-  jwtSecret: process.env.JWT_SECRET || 'gegidze-dev-secret',
+  jwtSecret: process.env.JWT_SECRET || 'unitty-dev-secret',
   databaseUrl: process.env.DATABASE_URL || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',

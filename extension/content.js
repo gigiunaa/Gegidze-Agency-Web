@@ -157,7 +157,7 @@ function hideMeetCaptions(hidden) {
 }
 
 function renderLiveCaptions(blocks) {
-  const panel = document.getElementById('gegidze-live');
+  const panel = document.getElementById('unitty-live');
   if (!panel) return;
   panel.style.display = 'block';
 
@@ -266,7 +266,7 @@ function showCrmNotice(meetingId) {
     if (matches.length === 0) return;
 
     const box = document.createElement('div');
-    box.id = 'gegidze-crm';
+    box.id = 'unitty-crm';
     box.style.cssText = `
       position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
       z-index: 9999999; max-width: 520px;
@@ -274,7 +274,7 @@ function showCrmNotice(meetingId) {
       border-radius: 10px; padding: 12px 18px; color: #141428;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 13px; line-height: 1.5; box-shadow: 0 8px 28px rgba(0,0,0,0.14);
-      animation: gegidze-in 0.3s ease-out;
+      animation: unitty-in 0.3s ease-out;
     `;
     const title = document.createElement('div');
     title.style.cssText = 'font-weight:700;color:#7b6cf6;margin-bottom:4px;';
@@ -405,10 +405,10 @@ function stopRecording() {
 
 // ── UI: Call detected banner ──────────────────────────────────────────────
 function showCallBanner(platform) {
-  if (document.getElementById('gegidze-banner')) return;
+  if (document.getElementById('unitty-banner')) return;
 
   const banner = document.createElement('div');
-  banner.id = 'gegidze-banner';
+  banner.id = 'unitty-banner';
   banner.innerHTML = `
     <div style="
       position: fixed; top: 20px; right: 20px; z-index: 999999;
@@ -418,7 +418,7 @@ function showCallBanner(platform) {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 14px; min-width: 280px;
       box-shadow: 0 8px 32px rgba(123, 108, 246, 0.2);
-      animation: gegidze-in 0.35s ease-out;
+      animation: unitty-in 0.35s ease-out;
     ">
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
         <span style="font-size: 22px;">🎙️</span>
@@ -426,7 +426,7 @@ function showCallBanner(platform) {
           <div style="font-weight: 700; font-size: 15px;">Unitty Recorder</div>
           <div style="color: #555570; font-size: 12px; margin-top: 2px;">${platform} call detected</div>
         </div>
-        <button id="gegidze-close" style="
+        <button id="unitty-close" style="
           margin-left: auto; background: none; border: none;
           color: #555570; cursor: pointer; font-size: 16px;
         ">✕</button>
@@ -436,16 +436,16 @@ function showCallBanner(platform) {
       </p>
     </div>
     <style>
-      @keyframes gegidze-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes unitty-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
   `;
 
   document.body.appendChild(banner);
-  document.getElementById('gegidze-close')?.addEventListener('click', removeBanner);
+  document.getElementById('unitty-close')?.addEventListener('click', removeBanner);
 }
 
 function removeBanner() {
-  const el = document.getElementById('gegidze-banner');
+  const el = document.getElementById('unitty-banner');
   if (el) {
     el.style.transition = 'opacity 0.25s';
     el.style.opacity = '0';
@@ -455,11 +455,11 @@ function removeBanner() {
 
 // ── UI: Recording indicator ───────────────────────────────────────────────
 function showRecordingIndicator() {
-  if (document.getElementById('gegidze-rec')) return;
+  if (document.getElementById('unitty-rec')) return;
   recordingStartTime = Date.now();
 
   const el = document.createElement('div');
-  el.id = 'gegidze-rec';
+  el.id = 'unitty-rec';
   el.innerHTML = `
     <div style="
       position: fixed; top: 16px; right: 16px; z-index: 999999;
@@ -469,25 +469,25 @@ function showRecordingIndicator() {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 13px; display: flex; align-items: center; gap: 8px;
       box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
-      animation: gegidze-in 0.3s ease-out;
+      animation: unitty-in 0.3s ease-out;
     ">
-      <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:gegidze-pulse 1s infinite;"></span>
+      <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:unitty-pulse 1s infinite;"></span>
       <span style="font-weight: 600;">Recording</span>
-      <span id="gegidze-timer" style="font-variant-numeric:tabular-nums;color:#555570;">00:00</span>
-      <button id="gegidze-stop" style="
+      <span id="unitty-timer" style="font-variant-numeric:tabular-nums;color:#555570;">00:00</span>
+      <button id="unitty-stop" style="
         background:#fdecec;border:1px solid #f5c2c2;border-radius:6px;
         color:#ef4444;padding:4px 10px;margin-left:6px;font-size:12px;
         font-weight:600;cursor:pointer;
       ">Stop</button>
     </div>
-    <div id="gegidze-live" style="
+    <div id="unitty-live" style="
       position: fixed; top: 64px; right: 16px; z-index: 999999; width: 360px; max-height: 40vh; overflow: hidden;
       background: rgba(255, 255, 255, 0.96); border: 1px solid #e4e4ed; border-radius: 10px;
       padding: 10px 14px; color: #141428; display: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5;
     "></div>
     <style>
-      @keyframes gegidze-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      @keyframes unitty-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     </style>
   `;
 
@@ -497,11 +497,11 @@ function showRecordingIndicator() {
     const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
     const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
     const s = (elapsed % 60).toString().padStart(2, '0');
-    const timer = document.getElementById('gegidze-timer');
+    const timer = document.getElementById('unitty-timer');
     if (timer) timer.textContent = `${m}:${s}`;
   }, 1000);
 
-  document.getElementById('gegidze-stop')?.addEventListener('click', () => {
+  document.getElementById('unitty-stop')?.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'STOP_RECORDING' });
     stopRecording();
   });
@@ -509,25 +509,25 @@ function showRecordingIndicator() {
 
 function removeRecordingIndicator() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  const el = document.getElementById('gegidze-rec');
+  const el = document.getElementById('unitty-rec');
   if (el) el.remove();
 }
 
 // ── UI: Notification ──────────────────────────────────────────────────────
 function showNotification(text, type) {
-  const existing = document.getElementById('gegidze-notification');
+  const existing = document.getElementById('unitty-notification');
   if (existing) existing.remove();
 
   const color = type === 'success' ? '#34d399' : '#ef4444';
   const div = document.createElement('div');
-  div.id = 'gegidze-notification';
+  div.id = 'unitty-notification';
   div.style.cssText = `
     position: fixed; bottom: 24px; right: 24px; z-index: 9999999;
     background: #ffffff; border: 1px solid ${color}; border-radius: 12px;
     padding: 14px 20px; color: ${color}; font-size: 13px; font-weight: 600;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-    animation: gegidze-in 0.3s ease-out;
+    animation: unitty-in 0.3s ease-out;
   `;
   div.textContent = text;
   document.body.appendChild(div);

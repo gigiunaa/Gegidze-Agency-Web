@@ -11,4 +11,4 @@ restartPolicyMaxRetries = 5
 
 [[volumes]]
 mount = "/data"
-name = "gegidze-data"
+name = "unitty-data"
