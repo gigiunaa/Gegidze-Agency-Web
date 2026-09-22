@@ -55,9 +55,22 @@ test('writes every line with its time, speaker and Georgian text', async () => {
   assert.match(xml, /კარგად, გმადლობ\./);
 });
 
-test('names the file after the meeting, safe for a download', () => {
-  assert.equal(transcriptFileName({ ...meeting, title: 'Zoom Call — 9/18/2026, 2:15:00 PM' }), 'Zoom Call - 9-18-2026, 2-15-00 PM.docx');
+test('names the file after the meeting and the day it was held', () => {
+  assert.equal(transcriptFileName(meeting), 'Google Meet Call - 9-18-2026 — 2026-09-18.docx');
 });
+
+test('does not repeat the date when the title already ends with it', () => {
+  const dated = { ...meeting, title: 'Intro call — 2026-09-18' };
+
+  assert.equal(transcriptFileName(dated), 'Intro call - 2026-09-18.docx');
+});
+
+test('keeps the name usable as a file on any system', () => {
+  const messy = { ...meeting, title: 'Zoom Call — 9/18/2026, 2:15:00 PM' };
+
+  assert.equal(transcriptFileName(messy), 'Zoom Call - 9-18-2026, 2-15-00 PM — 2026-09-18.docx');
+});
+
 
 test('lists the invited people with their emails under the title', async () => {
   const withAttendees: Meeting = {

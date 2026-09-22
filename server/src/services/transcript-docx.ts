@@ -156,6 +156,8 @@ function cell(children: TextRun[], widthPercent: number): TableCell {
 
 // File name for the download: the meeting title with characters Windows/browsers reject replaced
 export function transcriptFileName(meeting: Meeting): string {
-  const safe = meeting.title.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+—\s+/g, ' - ').trim();
-  return `${safe || 'transcript'}.docx`;
+  const safe = meeting.title.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+—\s+/g, ' - ').trim() || 'Transcript';
+  // The date is spelled out, so an attachment sitting in a CRM record says which call it was
+  const day = new Date(meeting.startTime).toISOString().slice(0, 10);
+  return safe.includes(day) ? `${safe}.docx` : `${safe} — ${day}.docx`;
 }
