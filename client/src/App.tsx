@@ -9,6 +9,8 @@ import { MeetingDetailPage } from './pages/MeetingDetail';
 import { RecordingPage } from './pages/Recording';
 import { SettingsPage } from './pages/Settings';
 import { AdminPage } from './pages/Admin';
+import { PrivacyPage } from './pages/Privacy';
+import { TermsPage } from './pages/Terms';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -33,6 +35,9 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      {/* Readable without an account: Google's OAuth review and the people on a call both need these */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route path="/*" element={
         <ProtectedRoute>
           <Layout>
