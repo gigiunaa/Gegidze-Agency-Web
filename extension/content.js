@@ -226,34 +226,60 @@ function waitFor(check, timeoutMs) {
   });
 }
 
-// Let the other participants know the call is being transcribed: open Meet's chat, send the notice, close it
-async function postChatNotice() {
-  try {
-    const chatButton = symbolButton('chat');
-    if (!chatButton) return console.warn('[Unitty] Chat button not found');
-    chatButton.click();
+function visibleChatInput() {
+  return Array.from(document.querySelectorAll('textarea')).find(t => t.offsetParent !== null) || null;
+}
 
-    const input = await waitFor(() => Array.from(document.querySelectorAll('textarea')).find(t => t.offsetParent !== null), 5000);
-    if (!input) return console.warn('[Unitty] Chat input not found');
+// Let the other participants know the call is being transcribed. The chat panel is left the way
+// it was found: clicking the chat button when the panel is already open closes it, which is how
+// the notice silently stopped being sent.
+async function postChatNotice() {
+  let openedByUs = false;
+  try {
+    let input = visibleChatInput();
+    if (!input) {
+      const chatButton = symbolButton('chat');
+      if (!chatButton) return console.warn('[Unitty] Chat button not found');
+      chatButton.click();
+      openedByUs = true;
+      input = await waitFor(visibleChatInput, 8000);
+    }
+    if (!input) {
+      showNotification('Unitty: could not open the chat to post the recording notice', 'error');
+      return console.warn('[Unitty] Chat input not found');
+    }
 
     input.focus();
     // Meet's input is framework-controlled: set the value through the native setter so it notices the change
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, CHAT_NOTICE);
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
 
     const sendButton = symbolButton('send');
-    if (sendButton && !sendButton.disabled) {
-      sendButton.click();
-    } else {
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-    }
-    console.log('[Unitty] Chat notice sent');
+    if (sendButton && !sendButton.disabled) sendButton.click();
+    await new Promise(r => setTimeout(r, 600));
 
-    await new Promise(r => setTimeout(r, 800));
-    chatButton.click();
+    // An empty box means it went; if the button did nothing, Enter is the other way to send
+    if (input.value.trim()) {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    if (input.value.trim()) {
+      showNotification('Unitty: the recording notice could not be posted in the chat', 'error');
+      console.warn('[Unitty] Chat notice still in the box — not sent');
+    } else {
+      console.log('[Unitty] Chat notice sent');
+    }
   } catch (err) {
     console.warn('[Unitty] Chat notice failed:', err.message);
+  } finally {
+    if (openedByUs) {
+      // Meet redraws the panel after a message is posted; clicking too soon lands on nothing.
+      // One click only — a second one arrives mid-animation and opens the panel straight back up.
+      await new Promise(r => setTimeout(r, 1000));
+      symbolButton('chat')?.click();
+    }
   }
 }
 
