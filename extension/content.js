@@ -472,7 +472,7 @@ function showCallBanner(platform) {
   banner.id = 'unitty-banner';
   banner.innerHTML = `
     <div style="
-      position: fixed; top: 20px; right: 20px; z-index: 999999;
+      position: fixed; top: 140px; right: 20px; z-index: 999999;
       background: #ffffff;
       border: 1px solid #7b6cf6; border-radius: 14px;
       padding: 20px 24px; color: #141428;
@@ -523,7 +523,7 @@ function showRecordingIndicator() {
   el.id = 'unitty-rec';
   el.innerHTML = `
     <div style="
-      position: fixed; top: 16px; right: 16px; z-index: 999999;
+      position: fixed; top: 140px; right: 16px; z-index: 999999;
       background: #fff5f5;
       border: 1px solid #f5c2c2; border-radius: 10px;
       padding: 10px 16px; color: #ef4444;
@@ -542,7 +542,7 @@ function showRecordingIndicator() {
       ">Stop</button>
     </div>
     <div id="unitty-live" style="
-      position: fixed; top: 64px; right: 16px; z-index: 999999; width: 360px; max-height: 40vh; overflow: hidden;
+      position: fixed; top: 196px; right: 16px; z-index: 999999; width: 360px; max-height: 34vh; overflow: hidden;
       background: rgba(255, 255, 255, 0.96); border: 1px solid #e4e4ed; border-radius: 10px;
       padding: 10px 14px; color: #141428; display: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5;
