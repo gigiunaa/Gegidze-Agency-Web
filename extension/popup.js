@@ -14,7 +14,6 @@ const stopBtn = document.getElementById('stop-btn');
 const notRecording = document.getElementById('not-recording');
 const isRecording = document.getElementById('is-recording');
 const recTimer = document.getElementById('rec-timer');
-const autoRecordToggle = document.getElementById('auto-record');
 const uploadStatus = document.getElementById('upload-status');
 const mainError = document.getElementById('main-error');
 

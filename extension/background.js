@@ -97,7 +97,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     case 'UPLOAD_SPEAKER': {
-      uploadSpeakerTrack(msg.recordingId).then(sendResponse, (e) => sendResponse({ error: e.message }));
+      uploadSpeakerTrack(msg.recordingId, msg.saveAs).then(sendResponse, (e) => sendResponse({ error: e.message }));
+      return true;
+    }
+
+    case 'CHECK_MEETING': {
+      getAuthToken().then(async (token) => {
+        try {
+          const res = await fetch(`${API_BASE}/meetings/${msg.meetingId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error(`status check failed: ${res.status}`);
+          const meeting = await res.json();
+          sendResponse({ status: meeting?.status, error: meeting?.errorMessage });
+        } catch (e) {
+          sendResponse({ error: e.message });
+        }
+      });
       return true;
     }
 
@@ -137,12 +153,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // ── Upload ────────────────────────────────────────────────────────────────
 // The other participants were recorded in the offscreen document, which uploads them itself:
 // a long recording is far too much data to pass between extension contexts as a message.
-async function uploadSpeakerTrack(recordingId) {
+async function uploadSpeakerTrack(recordingId, saveAs) {
   const token = await getAuthToken();
   if (!token || !recordingId) return { error: 'Not authenticated' };
 
   try {
     await chrome.runtime.sendMessage({ target: 'offscreen', type: 'OFFSCREEN_STOP' });
+    // Keep a copy on the user's machine even if the upload that follows fails
+    await chrome.runtime.sendMessage({ target: 'offscreen', type: 'OFFSCREEN_SAVE_LOCAL', saveAs }).catch(() => {});
     const result = await chrome.runtime.sendMessage({
       target: 'offscreen', type: 'OFFSCREEN_UPLOAD', recordingId, token, apiBase: API_BASE,
     });

@@ -22,6 +22,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'OFFSCREEN_SAVE_LOCAL') {
+    sendResponse(saveLocally(msg.saveAs));
+    return true;
+  }
+
   if (msg.type === 'OFFSCREEN_UPLOAD') {
     uploadCapture(msg.recordingId, msg.token, msg.apiBase).then(sendResponse, (err) => sendResponse({ error: err.message }));
     return true;
@@ -62,6 +67,28 @@ async function stopCapture() {
 
   console.log(`[Unitty offscreen] stopped, ${recorded.size} bytes`);
   return { bytes: recorded.size };
+}
+
+// The other participants' half of the call, kept on the user's own machine. This document is
+// hidden but it is still a real page, so an ordinary download works from here.
+function saveLocally(fileName) {
+  if (!recorded || recorded.size === 0) return { skipped: 'nothing recorded' };
+  try {
+    const url = URL.createObjectURL(recorded);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'Unitty call — others.webm';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Revoked late: revoking immediately can cancel a download that has not started reading yet
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    console.log(`[Unitty offscreen] saved locally: ${link.download}`);
+    return { ok: true };
+  } catch (err) {
+    console.error('[Unitty offscreen] could not save locally:', err);
+    return { error: err.message };
+  }
 }
 
 // Uploaded from here rather than handed to the background worker: a long call is far too much

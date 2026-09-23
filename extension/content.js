@@ -46,8 +46,28 @@ function isInCall() {
 }
 
 let joinedNotified = false;
+// The call can end without the Stop button ever being pressed — someone hangs up, or the host
+// ends it for everyone. Recording on past that point is how a call ends up never being saved.
+let leftCallSince = null;
+const LEFT_CALL_GRACE_MS = 6000;
+
 setInterval(() => {
   const inCall = isInCall();
+
+  if (inCall) {
+    leftCallSince = null;
+  } else if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    // A brief absence of the icon happens while Meet redraws, so wait before believing it
+    leftCallSince ??= Date.now();
+    if (Date.now() - leftCallSince >= LEFT_CALL_GRACE_MS) {
+      leftCallSince = null;
+      console.log('[Unitty] Call ended — stopping the recording');
+      showNotification('Unitty: The call ended. Saving the recording...', 'success');
+      stopRecording();
+      return;
+    }
+  }
+
   if (inCall && !joinedNotified) {
     joinedNotified = true;
     if (mediaRecorder) return;
@@ -408,6 +428,12 @@ async function startRecording(meetingId, streamIdError) {
       const captions = stopCaptionTracking();
       console.log(`[Unitty] Mic: ${micBlob.size} bytes`);
 
+      // Straight to the user's own machine, before a byte is sent anywhere. A call that exists
+      // only on a server is one server problem away from being gone for good — which is exactly
+      // how a recording was lost once.
+      const baseName = recordingName();
+      saveLocally(micBlob, `${baseName} — my voice.webm`);
+
       micStream?.getTracks().forEach(t => t.stop());
       chunks = [];
       micStream = null;
@@ -434,7 +460,12 @@ async function startRecording(meetingId, streamIdError) {
 
         showNotification('Unitty: Recording uploaded. Transcript is being created.', 'success');
         // The other participants were recorded outside this tab; the background sends that part
-        if (!tabCaptureError) sendToBackground({ type: 'UPLOAD_SPEAKER', recordingId: recording.id });
+        if (!tabCaptureError) {
+          sendToBackground({ type: 'UPLOAD_SPEAKER', recordingId: recording.id, saveAs: `${baseName} — others.webm` });
+        }
+
+        // Don't take the upload as proof: wait until the server actually has the transcript
+        verifyTranscript(savedMeetingId);
       } catch (err) {
         console.error('[Unitty] Upload failed:', err);
         showNotification(`Unitty: Upload failed — ${err.message}`, 'error');
@@ -464,6 +495,69 @@ function stopRecording() {
   removeRecordingIndicator();
 }
 
+// ── Keeping a copy on the user's own machine ──────────────────────────────
+// Named after the call and the moment it happened, so a folder of these still makes sense later.
+function recordingName() {
+  const code = location.pathname.replace(/^\//, '').split('?')[0] || 'call';
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}-${pad(now.getMinutes())}`;
+  return `Unitty ${code} ${stamp}`;
+}
+
+function saveLocally(blob, fileName) {
+  if (!blob || blob.size === 0) return;
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Revoked late: revoking immediately can cancel a download that has not started reading yet
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    console.log(`[Unitty] Saved locally: ${fileName} (${blob.size} bytes)`);
+  } catch (err) {
+    console.error('[Unitty] Could not save locally:', err);
+  }
+}
+
+// ── Did the transcript actually arrive? ───────────────────────────────────
+// A successful upload only means the audio reached the server. Transcription happens afterwards
+// and can fail, so the call is not treated as done until the transcript is really there.
+const VERIFY_FOR_MS = 15 * 60 * 1000;
+const VERIFY_EVERY_MS = 20000;
+
+async function verifyTranscript(meetingId) {
+  if (!meetingId) return;
+  const until = Date.now() + VERIFY_FOR_MS;
+  showNotification('Unitty: Recording saved to your Downloads. Waiting for the transcript...', 'success');
+
+  while (Date.now() < until) {
+    await new Promise(r => setTimeout(r, VERIFY_EVERY_MS));
+
+    const { status, error } = await sendToBackground({ type: 'CHECK_MEETING', meetingId });
+    if (status === 'completed') {
+      showNotification('Unitty: Transcript is ready. The call is fully saved.', 'success');
+      return;
+    }
+    if (status === 'failed') {
+      showNotification(
+        `Unitty: Transcription failed${error ? ` — ${error}` : ''}. Your recording is in Downloads, and you can press "Try again" on the meeting page.`,
+        'error',
+      );
+      return;
+    }
+  }
+
+  showNotification(
+    'Unitty: The transcript is taking longer than expected. Your recording is safe in Downloads — check the meeting page.',
+    'error',
+  );
+}
+
 // ── UI: Call detected banner ──────────────────────────────────────────────
 function showCallBanner(platform) {
   if (document.getElementById('unitty-banner')) return;
@@ -472,7 +566,7 @@ function showCallBanner(platform) {
   banner.id = 'unitty-banner';
   banner.innerHTML = `
     <div style="
-      position: fixed; top: 140px; right: 20px; z-index: 999999;
+      position: fixed; top: 260px; right: 20px; z-index: 999999;
       background: #ffffff;
       border: 1px solid #7b6cf6; border-radius: 14px;
       padding: 20px 24px; color: #141428;
@@ -523,7 +617,7 @@ function showRecordingIndicator() {
   el.id = 'unitty-rec';
   el.innerHTML = `
     <div style="
-      position: fixed; top: 140px; right: 16px; z-index: 999999;
+      position: fixed; top: 260px; right: 16px; z-index: 999999;
       background: #fff5f5;
       border: 1px solid #f5c2c2; border-radius: 10px;
       padding: 10px 16px; color: #ef4444;
@@ -542,7 +636,7 @@ function showRecordingIndicator() {
       ">Stop</button>
     </div>
     <div id="unitty-live" style="
-      position: fixed; top: 196px; right: 16px; z-index: 999999; width: 360px; max-height: 34vh; overflow: hidden;
+      position: fixed; top: 316px; right: 16px; z-index: 999999; width: 360px; max-height: 34vh; overflow: hidden;
       background: rgba(255, 255, 255, 0.96); border: 1px solid #e4e4ed; border-radius: 10px;
       padding: 10px 14px; color: #141428; display: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5;
