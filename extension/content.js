@@ -264,15 +264,19 @@ function typeIntoChat(field, text) {
 // clicking that button when the panel is already open closes it, so the panel is left as found.
 async function postChatNotice() {
   let openedByUs = false;
+  // Shown on screen, not just logged: reading the console during a call is not realistic
+  const pageState = () => [
+    symbolButton('chat') ? 'chat+' : 'chat-',
+    symbolButton('send') ? 'send+' : 'send-',
+    'ta' + document.querySelectorAll('textarea').length,
+    'ce' + document.querySelectorAll('[contenteditable="true"]').length,
+    'in' + document.querySelectorAll('input[type="text"]').length,
+  ].join(' ');
+
   const giveUp = (reason) => {
-    console.warn('[Unitty] Chat notice not posted:', reason);
-    console.warn('[Unitty] What the page had:', {
-      chatButton: !!symbolButton('chat'),
-      sendButton: !!symbolButton('send'),
-      textareas: document.querySelectorAll('textarea').length,
-      editables: document.querySelectorAll('[contenteditable="true"]').length,
-    });
-    showNotification(`Unitty: could not post the recording notice in the chat — ${reason}`, 'error');
+    const state = pageState();
+    console.warn('[Unitty] Chat notice not posted:', reason, '|', state);
+    showNotification(`Unitty: chat notice failed — ${reason} [${state}]`, 'error');
   };
 
   try {
@@ -572,6 +576,7 @@ function removeRecordingIndicator() {
 
 // ── UI: Notification ──────────────────────────────────────────────────────
 function showNotification(text, type) {
+  const staysFor = type === 'error' ? 30000 : 5000;
   const existing = document.getElementById('unitty-notification');
   if (existing) existing.remove();
 
@@ -592,5 +597,5 @@ function showNotification(text, type) {
     div.style.transition = 'opacity 0.3s';
     div.style.opacity = '0';
     setTimeout(() => div.remove(), 300);
-  }, 5000);
+  }, staysFor);
 }
