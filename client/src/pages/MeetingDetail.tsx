@@ -69,7 +69,7 @@ export function MeetingDetailPage() {
 
       {meeting.status === 'failed' && <RetryBanner meeting={meeting} onDone={() => loadData(meeting.id)} />}
 
-      {transcription && <DownloadWordButton meeting={meeting} />}
+      <DownloadRow meeting={meeting} hasTranscript={!!transcription} />
 
       {transcription && <ZohoSection meeting={meeting} />}
 
@@ -113,27 +113,41 @@ function RetryBanner({ meeting, onDone }: { meeting: Meeting; onDone: () => void
   );
 }
 
-// ── Word download ─────────────────────────────────────────────────────────
-function DownloadWordButton({ meeting }: { meeting: Meeting }) {
-  const [downloading, setDownloading] = useState(false);
+// ── Downloads: the transcript, and the recording itself ───────────────────
+function DownloadRow({ meeting, hasTranscript }: { meeting: Meeting; hasTranscript: boolean }) {
+  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const safeTitle = meeting.title.replace(/[\\/:*?"<>|]/g, '-');
 
-  async function handleDownload() {
-    setDownloading(true);
+  async function run(what: string, download: () => Promise<void>) {
+    setBusy(what);
     setError('');
     try {
-      await api.transcription.downloadDocx(meeting.id, `${meeting.title.replace(/[\\/:*?"<>|]/g, '-')}.docx`);
+      await download();
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setDownloading(false);
+      setBusy('');
     }
   }
 
   return (
     <div className={styles.downloadRow}>
-      <button className={styles.downloadBtn} onClick={handleDownload} disabled={downloading}>
-        {downloading ? 'Preparing...' : 'Download Word'}
+      {hasTranscript && (
+        <button
+          className={styles.downloadBtn}
+          onClick={() => run('word', () => api.transcription.downloadDocx(meeting.id, `${safeTitle}.docx`))}
+          disabled={!!busy}
+        >
+          {busy === 'word' ? 'Preparing...' : 'Download Word'}
+        </button>
+      )}
+      <button
+        className={styles.downloadBtn}
+        onClick={() => run('audio', () => api.recordings.downloadAudio(meeting.id, `${safeTitle}.webm`))}
+        disabled={!!busy}
+      >
+        {busy === 'audio' ? 'Preparing...' : 'Download recording'}
       </button>
       {error && <span className={styles.errorText}>{error}</span>}
     </div>

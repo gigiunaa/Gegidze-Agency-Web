@@ -61,6 +61,23 @@ function del<T>(url: string): Promise<T> {
   return request<T>(url, { method: 'DELETE' });
 }
 
+// Fetch a file with the auth token, then hand it to the browser as a download
+async function downloadFile(url: string, fileName: string): Promise<void> {
+  const res = await fetch(`${API_BASE}${url}`, {
+    headers: { Authorization: `Bearer ${getToken() ?? ''}` },
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Download failed' }));
+    throw new Error(error.error || 'Download failed');
+  }
+  const objectUrl = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
 // ─── API Methods ────────────────────────────────────────────────────
 import type { Meeting, Transcription, Summary, AuthResponse, User, ZohoAttachment } from '../../../shared/types';
 
@@ -82,26 +99,14 @@ export const api = {
   recordings: {
     upload: (formData: FormData) => post<any>('/recordings/upload', formData),
     retry: (meetingId: string) => post<{ ok: boolean }>(`/recordings/retry/${meetingId}`),
+    downloadAudio: (meetingId: string, fileName: string) =>
+      downloadFile(`/recordings/${meetingId}/audio`, fileName),
   },
 
   transcription: {
     get: (meetingId: string) => get<Transcription | null>(`/transcriptions/${meetingId}`),
-    // Fetch the Word document with the auth token, then hand it to the browser as a download
-    downloadDocx: async (meetingId: string, fileName: string) => {
-      const res = await fetch(`${API_BASE}/transcriptions/${meetingId}/docx`, {
-        headers: { Authorization: `Bearer ${getToken() ?? ''}` },
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: 'Download failed' }));
-        throw new Error(error.error || 'Download failed');
-      }
-      const url = URL.createObjectURL(await res.blob());
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-    },
+    downloadDocx: (meetingId: string, fileName: string) =>
+      downloadFile(`/transcriptions/${meetingId}/docx`, fileName),
   },
 
   summary: {

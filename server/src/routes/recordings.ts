@@ -55,14 +55,6 @@ export function createRecordingsRouter(db: DatabaseService): Router {
 
   const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 } });
 
-  function cleanupFiles(...paths: (string | undefined)[]) {
-    for (const p of paths) {
-      if (p && fs.existsSync(p)) {
-        try { fs.unlinkSync(p); } catch { /* ignore */ }
-      }
-    }
-  }
-
   // Transcript → notes → Zoho. Runs once per recording, in the background.
   function startPipeline(recordingId: string, meetingId: string, reason: string, again = false) {
     if (started.has(recordingId) && !again) return;
@@ -90,8 +82,8 @@ export function createRecordingsRouter(db: DatabaseService): Router {
         console.error('Zoho attachment failed (non-fatal):', err instanceof Error ? err.message : err);
       }
 
-      const recording = await db.getRecording(recordingId);
-      cleanupFiles(recording?.filePath, recording?.speakerFilePath);
+      // The audio stays. A transcript is not a replacement for the recording, and deleting it
+      // left people with no way to check a disputed line or to download the call itself.
     })().catch(async (err) => {
       console.error('Auto-transcription failed:', err);
       await db.updateMeetingStatus(meetingId, 'failed', err instanceof Error ? err.message : String(err));
@@ -174,6 +166,28 @@ export function createRecordingsRouter(db: DatabaseService): Router {
       console.error('Speaker upload error:', err);
       return res.status(500).json({ error: 'Upload failed' });
     }
+  });
+
+  // The call's own audio, so a recording can be listened to or kept outside the system
+  router.get('/:meetingId/audio', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.meetingId as string);
+    if (!meeting || (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId)) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    const recording = await db.getRecordingByMeeting(meeting.id);
+    if (!recording) return res.status(404).json({ error: 'Nothing was recorded for this meeting' });
+
+    // The microphone track by default; the other participants' track on request
+    const filePath = req.query.track === 'speaker' ? recording.speakerFilePath : recording.filePath;
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(410).json({ error: 'The audio for this call is no longer on the server' });
+    }
+
+    const day = new Date(meeting.startTime).toISOString().slice(0, 10);
+    const safe = meeting.title.replace(/[\\/:*?"<>|]/g, '-');
+    res.setHeader('Content-Type', 'audio/webm');
+    return res.download(filePath, `${safe} — ${day}.webm`);
   });
 
   // Put a failed call through again. Its audio was kept for exactly this.
