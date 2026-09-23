@@ -230,30 +230,34 @@ function visibleChatInput() {
   return Array.from(document.querySelectorAll('textarea')).find(t => t.offsetParent !== null) || null;
 }
 
-// Let the other participants know the call is being transcribed. The chat panel is left the way
-// it was found: clicking the chat button when the panel is already open closes it, which is how
-// the notice silently stopped being sent.
+// Let the other participants know the call is being transcribed. Two things matter here: the
+// toolbar may not be ready the moment recording starts, so the chat button is waited for; and
+// clicking that button when the panel is already open closes it, so the panel is left as found.
 async function postChatNotice() {
   let openedByUs = false;
+  const giveUp = (reason) => {
+    console.warn('[Unitty] Chat notice not posted:', reason);
+    showNotification(`Unitty: could not post the recording notice in the chat — ${reason}`, 'error');
+  };
+
   try {
     let input = visibleChatInput();
     if (!input) {
-      const chatButton = symbolButton('chat');
-      if (!chatButton) return console.warn('[Unitty] Chat button not found');
+      const chatButton = await waitFor(() => symbolButton('chat'), 15000);
+      if (!chatButton) return giveUp('the chat button never appeared');
       chatButton.click();
       openedByUs = true;
-      input = await waitFor(visibleChatInput, 8000);
+      input = await waitFor(visibleChatInput, 10000);
     }
-    if (!input) {
-      showNotification('Unitty: could not open the chat to post the recording notice', 'error');
-      return console.warn('[Unitty] Chat input not found');
-    }
+    if (!input) return giveUp('the chat box did not open');
 
     input.focus();
     // Meet's input is framework-controlled: set the value through the native setter so it notices the change
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, CHAT_NOTICE);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise(r => setTimeout(r, 400));
+
+    if (!input.value.trim()) return giveUp('Meet did not accept the text');
 
     const sendButton = symbolButton('send');
     if (sendButton && !sendButton.disabled) sendButton.click();
@@ -265,14 +269,10 @@ async function postChatNotice() {
       await new Promise(r => setTimeout(r, 600));
     }
 
-    if (input.value.trim()) {
-      showNotification('Unitty: the recording notice could not be posted in the chat', 'error');
-      console.warn('[Unitty] Chat notice still in the box — not sent');
-    } else {
-      console.log('[Unitty] Chat notice sent');
-    }
+    if (input.value.trim()) return giveUp('the message stayed in the box');
+    console.log('[Unitty] Chat notice sent');
   } catch (err) {
-    console.warn('[Unitty] Chat notice failed:', err.message);
+    giveUp(err.message);
   } finally {
     if (openedByUs) {
       // Meet redraws the panel after a message is posted; clicking too soon lands on nothing.
