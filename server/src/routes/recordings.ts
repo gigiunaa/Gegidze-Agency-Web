@@ -64,8 +64,8 @@ export function createRecordingsRouter(db: DatabaseService): Router {
   }
 
   // Transcript → notes → Zoho. Runs once per recording, in the background.
-  function startPipeline(recordingId: string, meetingId: string, reason: string) {
-    if (started.has(recordingId)) return;
+  function startPipeline(recordingId: string, meetingId: string, reason: string, again = false) {
+    if (started.has(recordingId) && !again) return;
     started.add(recordingId);
     console.log(`Processing recording ${recordingId} (${reason})`);
 
@@ -174,6 +174,26 @@ export function createRecordingsRouter(db: DatabaseService): Router {
       console.error('Speaker upload error:', err);
       return res.status(500).json({ error: 'Upload failed' });
     }
+  });
+
+  // Put a failed call through again. Its audio was kept for exactly this.
+  router.post('/retry/:meetingId', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.meetingId as string);
+    if (!meeting || (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId)) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    const recording = await db.getRecordingByMeeting(meeting.id);
+    if (!recording) {
+      return res.status(400).json({ error: 'Nothing was recorded for this meeting' });
+    }
+    if (!fs.existsSync(recording.filePath)) {
+      return res.status(410).json({ error: 'The audio for this call is no longer on the server' });
+    }
+
+    await db.updateMeetingStatus(meeting.id, 'processing');
+    startPipeline(recording.id, meeting.id, 'asked to try again', true);
+    return res.json({ ok: true });
   });
 
   return router;

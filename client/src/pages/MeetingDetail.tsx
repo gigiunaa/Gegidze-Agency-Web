@@ -67,6 +67,8 @@ export function MeetingDetailPage() {
         </a>
       )}
 
+      {meeting.status === 'failed' && <RetryBanner meeting={meeting} onDone={() => loadData(meeting.id)} />}
+
       {transcription && <DownloadWordButton meeting={meeting} />}
 
       {transcription && <ZohoSection meeting={meeting} />}
@@ -76,6 +78,37 @@ export function MeetingDetailPage() {
       <div className={styles.tabContent}>
         <TranscriptView transcription={transcription} />
       </div>
+    </div>
+  );
+}
+
+// ── A call that did not make it through ───────────────────────────────────
+function RetryBanner({ meeting, onDone }: { meeting: Meeting; onDone: () => void }) {
+  const [trying, setTrying] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleRetry() {
+    setTrying(true);
+    setError('');
+    try {
+      await api.recordings.retry(meeting.id);
+      onDone();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setTrying(false);
+    }
+  }
+
+  return (
+    <div className={styles.zohoSection}>
+      <h3 className={styles.zohoTitle}>This call was not transcribed</h3>
+      <p className={styles.emptyText}>{meeting.errorMessage || 'Something went wrong while processing it.'}</p>
+      <p className={styles.emptyText}>The audio was kept, so it can be put through again.</p>
+      <button className={styles.downloadBtn} onClick={handleRetry} disabled={trying}>
+        {trying ? 'Starting...' : 'Try again'}
+      </button>
+      {error && <p className={styles.errorText}>{error}</p>}
     </div>
   );
 }

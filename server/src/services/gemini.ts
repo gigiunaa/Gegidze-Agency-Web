@@ -184,11 +184,20 @@ async function generateOnce<T>(
 
   const data = await response.json() as {
     candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+    promptFeedback?: { blockReason?: string; safetyRatings?: unknown };
+    usageMetadata?: Record<string, unknown>;
   };
   const candidate = data.candidates?.[0];
   if (candidate?.finishReason !== 'STOP') {
-    // e.g. MAX_TOKENS when the model gets stuck repeating itself
-    throw new RetryableError(`Gemini stopped early: ${candidate?.finishReason ?? 'no candidate'}`);
+    // An empty answer says nothing on its own; Google's reason for it is in promptFeedback,
+    // and without that in the message there is no way to tell a refusal from a limit.
+    const why = [
+      candidate?.finishReason ?? 'no candidate',
+      data.promptFeedback?.blockReason ? `blocked: ${data.promptFeedback.blockReason}` : '',
+      data.promptFeedback && !data.promptFeedback.blockReason ? `promptFeedback: ${JSON.stringify(data.promptFeedback).slice(0, 200)}` : '',
+      data.usageMetadata ? `usage: ${JSON.stringify(data.usageMetadata).slice(0, 200)}` : '',
+    ].filter(Boolean).join(' | ');
+    throw new RetryableError(`Gemini stopped early: ${why}`);
   }
 
   const text = (candidate.content?.parts ?? []).filter(p => p.text && !p.thought).map(p => p.text).join('');

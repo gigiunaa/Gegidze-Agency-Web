@@ -81,6 +81,7 @@ export const api = {
 
   recordings: {
     upload: (formData: FormData) => post<any>('/recordings/upload', formData),
+    retry: (meetingId: string) => post<{ ok: boolean }>(`/recordings/retry/${meetingId}`),
   },
 
   transcription: {
