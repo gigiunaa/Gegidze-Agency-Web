@@ -226,8 +226,37 @@ function waitFor(check, timeoutMs) {
   });
 }
 
+// The box you type a message into. Meet has shipped it as a textarea, and other builds use a
+// contenteditable or a plain input, so it is found by looking around the send button rather than
+// by tag. The bottom-bar Gemini box is a contenteditable too, hence the send button as the anchor.
 function visibleChatInput() {
-  return Array.from(document.querySelectorAll('textarea')).find(t => t.offsetParent !== null) || null;
+  const isUsable = (el) => el && el.offsetParent !== null;
+  const send = symbolButton('send');
+  if (send) {
+    let node = send.parentElement;
+    for (let level = 0; level < 6 && node; level++) {
+      const field = Array.from(node.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')).find(isUsable);
+      if (field) return field;
+      node = node.parentElement;
+    }
+  }
+  return Array.from(document.querySelectorAll('textarea')).find(isUsable) || null;
+}
+
+function chatInputText(field) {
+  return ('value' in field ? field.value : field.textContent || '').trim();
+}
+
+function typeIntoChat(field, text) {
+  field.focus();
+  if ('value' in field) {
+    // Meet's input is framework-controlled: go through the native setter so it notices the change
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value')?.set;
+    if (setter) setter.call(field, text); else field.value = text;
+  } else {
+    field.textContent = text;
+  }
+  field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
 }
 
 // Let the other participants know the call is being transcribed. Two things matter here: the
@@ -237,6 +266,12 @@ async function postChatNotice() {
   let openedByUs = false;
   const giveUp = (reason) => {
     console.warn('[Unitty] Chat notice not posted:', reason);
+    console.warn('[Unitty] What the page had:', {
+      chatButton: !!symbolButton('chat'),
+      sendButton: !!symbolButton('send'),
+      textareas: document.querySelectorAll('textarea').length,
+      editables: document.querySelectorAll('[contenteditable="true"]').length,
+    });
     showNotification(`Unitty: could not post the recording notice in the chat — ${reason}`, 'error');
   };
 
@@ -251,25 +286,21 @@ async function postChatNotice() {
     }
     if (!input) return giveUp('the chat box did not open');
 
-    input.focus();
-    // Meet's input is framework-controlled: set the value through the native setter so it notices the change
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, CHAT_NOTICE);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    typeIntoChat(input, CHAT_NOTICE);
     await new Promise(r => setTimeout(r, 400));
-
-    if (!input.value.trim()) return giveUp('Meet did not accept the text');
+    if (!chatInputText(input)) return giveUp('Meet did not accept the text');
 
     const sendButton = symbolButton('send');
     if (sendButton && !sendButton.disabled) sendButton.click();
     await new Promise(r => setTimeout(r, 600));
 
     // An empty box means it went; if the button did nothing, Enter is the other way to send
-    if (input.value.trim()) {
+    if (chatInputText(input)) {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
       await new Promise(r => setTimeout(r, 600));
     }
 
-    if (input.value.trim()) return giveUp('the message stayed in the box');
+    if (chatInputText(input)) return giveUp('the message stayed in the box');
     console.log('[Unitty] Chat notice sent');
   } catch (err) {
     giveUp(err.message);
