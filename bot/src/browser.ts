@@ -1,4 +1,5 @@
 import { chromium, type BrowserContext, type Page } from 'playwright';
+import { RTC_HOOK_SOURCE } from './inject/rtc-hook';
 
 // Meet checks for a camera and a microphone before it will let anyone in, so Chrome is given fake
 // ones and told to grant them without asking. The bot neither speaks nor is seen; it only listens.
@@ -27,6 +28,9 @@ export async function launchBot(opts: { profileDir: string; headless?: boolean }
     permissions: ['microphone', 'camera'],
     viewport: { width: 1280, height: 800 },
   });
+
+  // Added before any navigation so it wins the race against Meet's own scripts
+  await context.addInitScript({ content: RTC_HOOK_SOURCE });
 
   const page = context.pages()[0] ?? (await context.newPage());
   return { context, page, close: () => context.close() };
