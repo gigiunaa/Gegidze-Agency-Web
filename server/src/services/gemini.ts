@@ -172,6 +172,15 @@ async function generateOnce<T>(
         responseMimeType: 'application/json',
         responseSchema: schema,
       },
+      // A recorded business call is not content to be moderated, and a refusal here costs the
+      // customer their meeting. The filters are opened as far as the API allows; what remains is
+      // Google's own "OTHER" block, which no setting turns off.
+      safetySettings: [
+        'HARM_CATEGORY_HARASSMENT',
+        'HARM_CATEGORY_HATE_SPEECH',
+        'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        'HARM_CATEGORY_DANGEROUS_CONTENT',
+      ].map(category => ({ category, threshold: 'BLOCK_NONE' })),
     }),
   });
 

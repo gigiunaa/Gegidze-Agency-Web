@@ -9,6 +9,9 @@ import { assignSpeakers, assignSpeakersWithTracks } from './transcript-utils';
 
 // Each recording is transcribed in 10-minute pieces
 const CHUNK_SECONDS = 600;
+// How finely a refused piece is cut on each further attempt. Running out of these means the audio
+// is left out of the transcript rather than the whole call being thrown away.
+const RETRY_SLICE_SECONDS = [120, 30];
 
 // How Google Meet captions label the local user, per UI language
 const LOCAL_USER_CAPTION_NAMES = new Set(['You', 'თქვენ', 'Вы']);
@@ -90,11 +93,7 @@ export class TranscriptionService {
           console.log(`Chunk ${index + 1}/${chunks.length} of ${path.basename(filePath)} is silent — skipped`);
           continue;
         }
-        results.push(await transcribeWithGemini(chunk, {
-          apiKey: config.geminiApiKey,
-          model: config.transcriptionModel,
-          offsetSeconds: index * CHUNK_SECONDS,
-        }));
+        results.push(await this.transcribeStubbornly(chunk, index * CHUNK_SECONDS, 0));
       }
 
       return {
@@ -104,6 +103,48 @@ export class TranscriptionService {
       };
     } finally {
       removeChunks(filePath);
+    }
+  }
+
+  // Gemini refuses the odd piece of audio with "blocked: OTHER", and it is not consistent about
+  // it: the same ten minutes went through on one run and was refused on the next. Losing a
+  // thirty-minute call over one refused piece is not acceptable, so a refusal is answered by
+  // cutting that piece up and trying the parts. Smaller pieces get through, and whatever is
+  // refused to the end costs seconds of the call instead of all of it.
+  private async transcribeStubbornly(chunk: string, offsetSeconds: number, depth: number): Promise<TranscriptResult> {
+    try {
+      return await transcribeWithGemini(chunk, {
+        apiKey: config.geminiApiKey,
+        model: config.transcriptionModel,
+        offsetSeconds,
+      });
+    } catch (err) {
+      const why = err instanceof Error ? err.message : String(err);
+      const seconds = RETRY_SLICE_SECONDS[depth];
+      if (seconds === undefined) {
+        console.error(`Gave up on ${path.basename(chunk)} at ${offsetSeconds}s: ${why}`);
+        // Said out loud in the transcript. A silent hole reads as "nobody spoke", which is a
+        // worse lie than admitting this half-minute could not be transcribed.
+        const marker = { start: offsetSeconds, end: offsetSeconds, text: '[ამ მონაკვეთის გაშიფვრა ვერ მოხერხდა]' };
+        return { text: marker.text, segments: [marker], language: 'ka' };
+      }
+
+      console.warn(`${path.basename(chunk)} refused (${why}) — cutting it into ${seconds}s pieces and trying again`);
+      const pieces = await splitAudio(chunk, seconds);
+      try {
+        const results: TranscriptResult[] = [];
+        for (const [index, piece] of pieces.entries()) {
+          if (await isSilent(piece)) continue;
+          results.push(await this.transcribeStubbornly(piece, offsetSeconds + index * seconds, depth + 1));
+        }
+        return {
+          text: results.map(r => r.text).join(' '),
+          segments: results.flatMap(r => r.segments),
+          language: results.find(r => r.segments.length > 0)?.language ?? 'ka',
+        };
+      } finally {
+        removeChunks(chunk);
+      }
     }
   }
 }
