@@ -4,11 +4,12 @@ import path from 'path';
 import fs from 'fs';
 import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
-import type { SpeakerInterval } from '../../../shared/types';
+import type { Recording, SpeakerInterval } from '../../../shared/types';
 import { TranscriptionService } from '../services/transcription';
 import { enrichMeetingFromCalendar } from '../services/calendar-enrichment';
 import { SummaryService } from '../services/summary';
 import { attachTranscriptToZoho } from '../services/zoho-attach';
+import { mixTracks } from '../services/audio-chunks';
 import { config } from '../config';
 
 // A call arrives in two requests: the microphone from the meeting page, then the other
@@ -168,6 +169,22 @@ export function createRecordingsRouter(db: DatabaseService): Router {
     }
   });
 
+  // A call is recorded as two separate tracks — this person's microphone, and everyone else's
+  // voices captured from the tab. Handing over only the first one gives you a recording of
+  // yourself talking into silence, so the two are put back together before they are downloaded.
+  async function wholeCall(recording: Recording): Promise<string | undefined> {
+    if (!recording.speakerFilePath || !fs.existsSync(recording.speakerFilePath)) {
+      return recording.filePath;
+    }
+    if (!fs.existsSync(recording.filePath)) return recording.speakerFilePath;
+
+    // mixTracks names its output from the mic path, so the same call reuses the earlier mix
+    const mixedPath = recording.filePath.replace(/(\.[a-z0-9]+)?$/i, '-mixed.webm');
+    if (fs.existsSync(mixedPath)) return mixedPath;
+
+    return mixTracks(recording.filePath, recording.speakerFilePath);
+  }
+
   // The call's own audio, so a recording can be listened to or kept outside the system
   router.get('/:meetingId/audio', async (req: AuthRequest, res) => {
     const meeting = await db.getMeeting(req.params.meetingId as string);
@@ -178,8 +195,18 @@ export function createRecordingsRouter(db: DatabaseService): Router {
     const recording = await db.getRecordingByMeeting(meeting.id);
     if (!recording) return res.status(404).json({ error: 'Nothing was recorded for this meeting' });
 
-    // The microphone track by default; the other participants' track on request
-    const filePath = req.query.track === 'speaker' ? recording.speakerFilePath : recording.filePath;
+    // The whole conversation by default. Either half can still be asked for by name.
+    let filePath: string | undefined;
+    try {
+      if (req.query.track === 'mic') filePath = recording.filePath;
+      else if (req.query.track === 'speaker') filePath = recording.speakerFilePath;
+      else filePath = await wholeCall(recording);
+    } catch (err) {
+      console.error('Could not put the two tracks together:', err);
+      // Half a call beats no call, so fall back rather than failing the download
+      filePath = recording.filePath;
+    }
+
     if (!filePath || !fs.existsSync(filePath)) {
       return res.status(410).json({ error: 'The audio for this call is no longer on the server' });
     }
