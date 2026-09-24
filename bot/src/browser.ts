@@ -8,6 +8,10 @@ const CHROME_ARGS = [
   '--use-fake-device-for-media-stream',
   '--autoplay-policy=no-user-gesture-required',
   '--disable-blink-features=AutomationControlled',
+  // Silencing the speakers stops the bot echoing the call back into the room it sits in, but it
+  // is off by default while it is still unproven whether Chrome keeps decoding — and so keeps
+  // reporting audio levels — for a muted output.
+  ...(process.env.BOT_MUTE_AUDIO === 'true' ? ['--mute-audio'] : []),
 ];
 
 export interface Bot {

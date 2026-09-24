@@ -20,18 +20,44 @@ async function dismissNotices(page: Page): Promise<void> {
   }
 }
 
+// The bot listens and says nothing. The icons name the state the control is currently IN, so a
+// "videocam" icon means the camera is still on and clicking it is what turns it off.
+async function muteSelf(page: Page): Promise<void> {
+  for (const on of ['videocam', 'mic']) {
+    const button = page.locator(`button:visible:has(.google-symbols:text-is("${on}"))`).first();
+    if (await button.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await button.click({ timeout: 3000 }).catch(() => {});
+    }
+  }
+}
+
 export async function joinCall(page: Page, meetUrl: string, displayName?: string): Promise<void> {
   const code = meetingCodeFrom(meetUrl);
   if (!code) throw new Error(`Not a Google Meet link: ${meetUrl}`);
 
   await page.goto(`https://meet.google.com/${code}`, { waitUntil: 'domcontentloaded' });
 
-  // The join button is the thing worth waiting for; everything else on this screen is optional
   const joinButton = page
     .locator('button:visible')
     .filter({ hasText: /join now|ask to join|შეუერთდი/i })
     .first();
-  await joinButton.waitFor({ state: 'visible', timeout: SCREEN_READY_MS });
+
+  // A signed-in account in the meeting's own organisation is often put straight into the call with
+  // no join screen at all, so waiting for a join button that will never come is not an option.
+  await Promise.race([
+    joinButton.waitFor({ state: 'visible', timeout: SCREEN_READY_MS }),
+    page.waitForFunction(
+      (icon) => Array.from(document.querySelectorAll('i')).some((i) => i.textContent?.trim() === icon),
+      IN_CALL_ICON,
+      { timeout: SCREEN_READY_MS },
+    ),
+  ]);
+
+  if (await isInCall(page)) {
+    await dismissNotices(page);
+    await muteSelf(page);
+    return;
+  }
 
   await dismissNotices(page);
 
@@ -42,13 +68,7 @@ export async function joinCall(page: Page, meetUrl: string, displayName?: string
     await nameBox.fill(displayName);
   }
 
-  // Join muted and unseen. Both are toggles, so they are only touched while still switched on.
-  for (const on of ['videocam', 'mic']) {
-    const button = page.locator(`button:visible:has(.google-symbols:text-is("${on}"))`).first();
-    if (await button.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await button.click({ timeout: 3000 }).catch(() => {});
-    }
-  }
+  await muteSelf(page);
 
   // Playwright waits for the button to become enabled, which is what filling the name achieves
   await joinButton.click({ timeout: 30000 });
