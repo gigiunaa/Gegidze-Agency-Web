@@ -19,6 +19,7 @@ const db = new DatabaseService();
 
 // Middleware — CORS
 const ALLOWED_ORIGINS = [
+  'https://notes.unitty.io',
   'https://gegidze-agency-web-production.up.railway.app',
   'https://app.gegidze.com',
 ];
@@ -47,6 +48,9 @@ app.use((_req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Without this the browser keeps trying plain HTTP first and shows the site as "not secure"
+  // until the redirect lands. Told once, it goes straight to HTTPS from then on.
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
 

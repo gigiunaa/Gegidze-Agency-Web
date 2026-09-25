@@ -1,6 +1,6 @@
 // ── Config ────────────────────────────────────────────────────────────────
-// Change this to your Railway URL for production, or keep localhost for local dev
-const API_BASE = 'https://api-production-34bcd.up.railway.app/api';
+// The dashboard and the API are the same origin; change both here and in popup.js if it moves
+const API_BASE = 'https://notes.unitty.io/api';
 
 const CALL_PATTERNS = [
   { pattern: /^https:\/\/meet\.google\.com\/[a-z]+-[a-z]+-[a-z]+/i, platform: 'Google Meet' },

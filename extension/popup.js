@@ -1,4 +1,4 @@
-const API_BASE = 'https://api-production-34bcd.up.railway.app/api';
+const API_BASE = 'https://notes.unitty.io/api';
 
 // ── DOM Elements ──────────────────────────────────────────────────────────
 const loginView = document.getElementById('login-view');
