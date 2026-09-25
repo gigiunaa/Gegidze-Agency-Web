@@ -25,18 +25,22 @@
   margin-bottom: var(--space-6);
 }
 
-.logo {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, var(--color-accent), #a78bfa);
-  border-radius: var(--radius-sm);
-  display: flex;
+/* The wordmark takes the sidebar's text colour; only the dot over the "i" is lime */
+.wordmark {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: var(--text-lg);
-  color: #fff;
+  color: var(--color-text-primary);
   flex-shrink: 0;
+}
+
+/* Stand-in for the wordmark when the sidebar is collapsed: the logo's lime dot, on its own */
+.mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+  margin-left: 5px;
 }
 
 .brandName {

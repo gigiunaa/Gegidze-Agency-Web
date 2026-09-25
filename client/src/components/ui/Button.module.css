@@ -38,7 +38,7 @@
 
 .primary {
   background-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border-color: var(--color-accent);
 }
 
@@ -81,27 +81,36 @@
   color: var(--color-text-primary);
 }
 
-/* ─── Sizes ─────────────────────────────────────────────────────── */
+/* ─── Sizes ───────────────────────────────────────────────────────────────
+   Pills with short uppercase labels, as on unitty.io. The generous horizontal
+   padding is what makes the shape read as a pill rather than a rounded box.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.button {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
 
 .sm {
   height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  border-radius: var(--radius-sm);
+  padding: 0 16px;
+  font-size: 11px;
+  border-radius: var(--radius-pill);
 }
 
 .md {
-  height: 40px;
-  padding: 0 18px;
-  font-size: 14px;
-  border-radius: var(--radius-sm);
+  height: 42px;
+  padding: 0 24px;
+  font-size: 12px;
+  border-radius: var(--radius-pill);
 }
 
 .lg {
-  height: 48px;
-  padding: 0 24px;
-  font-size: 15px;
-  border-radius: var(--radius-md);
+  height: 50px;
+  padding: 0 32px;
+  font-size: 13px;
+  border-radius: var(--radius-pill);
 }
 
 /* ─── Modifiers ─────────────────────────────────────────────────── */

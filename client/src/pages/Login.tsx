@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../stores/auth';
+import { UnittyLogo } from '../components/UnittyLogo';
 import styles from './Login.module.css';
 
 export function LoginPage() {
@@ -34,8 +35,8 @@ export function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Unitty <span className={styles.accent}>Recorder</span></h1>
-        <p className={styles.subtitle}>AI-Powered Meeting Intelligence</p>
+        <div className={styles.brand}><UnittyLogo height={34} /></div>
+        <p className={styles.subtitle}>Meeting recorder</p>
 
         <div className={styles.tabs}>
           <button

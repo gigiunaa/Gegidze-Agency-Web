@@ -1,42 +1,51 @@
-/* ─── CSS Variables (base; dark only with :root.dark) ──────────────────────────── */
+/* ─── Unitty ───────────────────────────────────────────────────────────────────
+   The palette and type are taken from unitty.io: a near-black ground, one lime
+   accent, and heavy uppercase display type. The accent is bright enough that
+   only dark text is readable on it — hence --color-on-accent, which every
+   filled accent surface must use instead of white.
+   ──────────────────────────────────────────────────────────────────────────── */
 :root {
-  --color-bg-primary: #0a0a14;
-  --color-bg-secondary: #12121f;
-  --color-bg-tertiary: #1c1c30;
-  --color-bg-card: #151525;
-  --color-bg-hover: #1e1e35;
+  --color-bg-primary: #060616;
+  --color-bg-secondary: #0c0c1e;
+  --color-bg-tertiary: #16162e;
+  --color-bg-card: #0f0f24;
+  --color-bg-hover: #1a1a36;
 
-  --color-text-primary: #ededf4;
-  --color-text-secondary: #9a9ab4;
-  --color-text-muted: #5c5c72;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a2a2bd;
+  --color-text-muted: #6a6a88;
 
-  --color-accent: #7b6cf6;
-  --color-accent-hover: #8e80ff;
-  --color-accent-dim: rgba(123, 108, 246, 0.12);
-  --color-accent-glow: rgba(123, 108, 246, 0.25);
+  --color-accent: #c1fd3a;
+  --color-accent-hover: #d2ff63;
+  --color-accent-dim: rgba(193, 253, 58, 0.12);
+  --color-accent-glow: rgba(193, 253, 58, 0.22);
+  --color-on-accent: #060616;
 
-  --color-success: #34d399;
-  --color-success-dim: rgba(52, 211, 153, 0.12);
-  --color-warning: #fbbf24;
-  --color-warning-dim: rgba(251, 191, 36, 0.12);
-  --color-error: #f87171;
-  --color-error-dim: rgba(248, 113, 113, 0.12);
-  --color-recording: #ef4444;
+  --color-success: #3ddc97;
+  --color-success-dim: rgba(61, 220, 151, 0.12);
+  --color-warning: #ffc53d;
+  --color-warning-dim: rgba(255, 197, 61, 0.12);
+  --color-error: #ff6b6b;
+  --color-error-dim: rgba(255, 107, 107, 0.12);
+  --color-recording: #ff4d4d;
 
-  --color-border: #1e1e35;
-  --color-border-light: #2a2a48;
+  --color-border: #1e1e38;
+  --color-border-light: #2c2c4e;
 
+  /* Unitty's buttons are full pills; cards stay squarer so the two read apart */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --radius-pill: 999px;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 20px var(--color-accent-glow);
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Anton', 'Inter', Impact, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
 
   --sidebar-width: 250px;
@@ -78,25 +87,37 @@
   --z-notification: 1200;
 }
 
-/* ─── Light Mode (default) ─────────────────────────────────────────────────── */
-:root:not(.dark) {
-  --color-bg-primary: #f8f8fc;
+/* ─── Light ────────────────────────────────────────────────────────────────
+   Unitty's own site is dark, so dark is what the product looks like by default.
+   This is the same palette turned over for anyone who prefers a light screen:
+   the lime is darkened, because #c1fd3a on white cannot be read.
+   ────────────────────────────────────────────────────────────────────────── */
+:root.light {
+  --color-bg-primary: #f4f4f2;
   --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #f0f0f7;
+  --color-bg-tertiary: #eaeae6;
   --color-bg-card: #ffffff;
-  --color-bg-hover: #f2f2fa;
+  --color-bg-hover: #efefeb;
 
-  --color-text-primary: #141428;
-  --color-text-secondary: #555570;
-  --color-text-muted: #8888a0;
+  --color-text-primary: #060616;
+  --color-text-secondary: #4a4a5e;
+  --color-text-muted: #82829a;
 
-  --color-border: #e4e4ed;
-  --color-border-light: #ededf4;
+  /* Kept as the surface colour, with dark text on it, exactly as on unitty.io */
+  --color-accent: #c1fd3a;
+  --color-accent-hover: #b0f227;
+  --color-accent-dim: rgba(120, 165, 20, 0.14);
+  --color-on-accent: #060616;
+  /* For lime text or borders on a pale background, where the bright lime disappears */
+  --color-accent-ink: #5f8a06;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 20px rgba(123, 108, 246, 0.15);
+  --color-border: #dededa;
+  --color-border-light: #ebebe7;
+
+  --shadow-sm: 0 1px 3px rgba(6, 6, 22, 0.06);
+  --shadow-md: 0 4px 16px rgba(6, 6, 22, 0.08);
+  --shadow-lg: 0 8px 32px rgba(6, 6, 22, 0.1);
+  --shadow-glow: 0 0 20px rgba(193, 253, 58, 0.35);
 }
 
 /* ─── Reset ──────────────────────────────────────────────────────── */
@@ -121,6 +142,31 @@ body {
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Headings ───────────────────────────────────────────────────────────────
+   unitty.io sets its headings in one heavy uppercase face at very large sizes.
+   A dashboard cannot carry 80px type, so the treatment is kept — the face, the
+   uppercase, the tight leading — and the scale is brought down to page size.
+   ──────────────────────────────────────────────────────────────────────────── */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400; /* Anton ships one weight and is already black */
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  color: var(--color-text-primary);
+}
+
+h1 { font-size: 34px; }
+h2 { font-size: 24px; }
+h3 { font-size: 18px; }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────
+   Unitty's buttons are full pills with short, uppercase labels.
+   ──────────────────────────────────────────────────────────────────────────── */
+button {
+  font-family: var(--font-sans);
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────── */

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { saveTheme, storedTheme, type Theme } from '../theme';
 import styles from './Settings.module.css';
 
 export function SettingsPage() {
@@ -17,9 +18,9 @@ export function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function handleThemeChange(theme: string) {
+  function handleThemeChange(theme: Theme) {
     handleUpdate({ theme });
-    document.documentElement.className = theme === 'system' ? 'light' : theme;
+    saveTheme(theme);
   }
 
   return (
@@ -37,8 +38,8 @@ export function SettingsPage() {
             {['dark', 'light', 'system'].map((t) => (
               <button
                 key={t}
-                className={`${styles.themeBtn} ${(settings.theme || 'light') === t ? styles.themeActive : ''}`}
-                onClick={() => handleThemeChange(t)}
+                className={`${styles.themeBtn} ${(settings.theme || storedTheme()) === t ? styles.themeActive : ''}`}
+                onClick={() => handleThemeChange(t as Theme)}
               >
                 {t === 'dark' ? 'Dark' : t === 'light' ? 'Light' : 'System'}
               </button>

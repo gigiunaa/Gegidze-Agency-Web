@@ -18,11 +18,11 @@
   animation: fadeIn 0.4s ease-out;
 }
 
-.title {
-  font-size: 28px;
-  font-weight: 900;
-  letter-spacing: -0.5px;
-  margin-bottom: 6px;
+.brand {
+  display: flex;
+  justify-content: center;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
 }
 
 .accent {
@@ -102,11 +102,13 @@
   width: 100%;
   padding: 13px;
   background: var(--color-accent);
-  color: white;
+  color: var(--color-on-accent);
   border: none;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
   margin-top: 4px;

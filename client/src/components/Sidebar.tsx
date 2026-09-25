@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/auth';
+import { UnittyLogo } from './UnittyLogo';
 import styles from './Sidebar.module.css';
 
 type NavItem = { path: string; label: string; icon: React.FC; roles?: string[] };
@@ -40,8 +41,13 @@ export function Sidebar() {
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div>
         <div className={styles.brand}>
-          <div className={styles.logo}>U</div>
-          {!collapsed && <span className={styles.brandName}>Unitty</span>}
+          {collapsed ? (
+            // Collapsed to the width of an icon, the wordmark would be unreadable, so the lime
+            // dot from the logo stands in for it.
+            <span className={styles.mark} aria-label="Unitty" />
+          ) : (
+            <span className={styles.wordmark}><UnittyLogo height={24} /></span>
+          )}
           <button
             className={styles.collapseBtn}
             onClick={() => setCollapsed(!collapsed)}

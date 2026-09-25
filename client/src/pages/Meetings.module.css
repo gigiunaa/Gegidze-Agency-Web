@@ -54,13 +54,13 @@
 .filterPillActive {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .filterPillActive:hover {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 /* ─── Skeleton loading toolbar ────────────────────────────────────── */
@@ -147,13 +147,13 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--color-accent, #7b6cf6), #9b8afb);
+  background: var(--color-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  color: #fff;
+  color: var(--color-on-accent);
   flex-shrink: 0;
   letter-spacing: 0.5px;
 }
