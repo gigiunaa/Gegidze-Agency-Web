@@ -33,14 +33,13 @@
   flex-shrink: 0;
 }
 
-/* Stand-in for the wordmark when the sidebar is collapsed: the logo's lime dot, on its own */
+/* Stand-in for the wordmark when the sidebar is collapsed */
 .mark {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-accent);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
-  margin-left: 5px;
+  display: block;
 }
 
 .brandName {
@@ -102,7 +101,7 @@
 
 .navItem.active {
   background: var(--color-accent-dim);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-weight: 600;
 }
 
@@ -158,7 +157,7 @@
   padding: 2px 8px;
   border-radius: 20px;
   background: var(--color-accent-dim);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 .userEmail {

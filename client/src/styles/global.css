@@ -20,6 +20,8 @@
   --color-accent-dim: rgba(193, 253, 58, 0.12);
   --color-accent-glow: rgba(193, 253, 58, 0.22);
   --color-on-accent: #060616;
+  /* Lime text/icons. On the dark ground the brand lime itself is readable. */
+  --color-accent-text: #c1fd3a;
 
   --color-success: #3ddc97;
   --color-success-dim: rgba(61, 220, 151, 0.12);
@@ -87,10 +89,10 @@
   --z-notification: 1200;
 }
 
-/* ─── Light ────────────────────────────────────────────────────────────────
-   Unitty's own site is dark, so dark is what the product looks like by default.
-   This is the same palette turned over for anyone who prefers a light screen:
-   the lime is darkened, because #c1fd3a on white cannot be read.
+/* ─── Light (the default) ──────────────────────────────────────────────────
+   unitty.io is dark, but this is a screen people sit in front of all day, so
+   the product opens light. Anything the lime was carrying as *text* has to be
+   darkened here: #c1fd3a on white is barely visible.
    ────────────────────────────────────────────────────────────────────────── */
 :root.light {
   --color-bg-primary: #f4f4f2;
@@ -108,8 +110,14 @@
   --color-accent-hover: #b0f227;
   --color-accent-dim: rgba(120, 165, 20, 0.14);
   --color-on-accent: #060616;
-  /* For lime text or borders on a pale background, where the bright lime disappears */
-  --color-accent-ink: #5f8a06;
+  /* On a pale ground the brand lime all but disappears, so text and icons take a darkened
+     version of it; the bright lime stays for filled surfaces, where dark text sits on it. */
+  --color-accent-text: #4b7000;
+
+  /* Status colours are read as text on their own pale tint, so they darken here too */
+  --color-success: #0f7a52;
+  --color-warning: #8a5a00;
+  --color-error: #c0392b;
 
   --color-border: #dededa;
   --color-border-light: #ebebe7;

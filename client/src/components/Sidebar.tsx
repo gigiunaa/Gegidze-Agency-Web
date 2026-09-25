@@ -42,9 +42,9 @@ export function Sidebar() {
       <div>
         <div className={styles.brand}>
           {collapsed ? (
-            // Collapsed to the width of an icon, the wordmark would be unreadable, so the lime
-            // dot from the logo stands in for it.
-            <span className={styles.mark} aria-label="Unitty" />
+            // Collapsed to the width of an icon, the wordmark would be unreadable, so Unitty's
+            // own square mark stands in for it.
+            <img className={styles.mark} src="/unitty-mark.png" alt="Unitty" width={28} height={28} />
           ) : (
             <span className={styles.wordmark}><UnittyLogo height={24} /></span>
           )}

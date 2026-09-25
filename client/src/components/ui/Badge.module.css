@@ -17,7 +17,7 @@
 
 .scheduled {
   background-color: var(--color-accent-dim);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 .recording {
@@ -42,7 +42,7 @@
 
 .admin {
   background-color: var(--color-accent-dim);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 .manager {
@@ -57,5 +57,5 @@
 
 .info {
   background-color: var(--color-accent-dim);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }

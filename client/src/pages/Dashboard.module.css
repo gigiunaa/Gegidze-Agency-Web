@@ -64,7 +64,7 @@
 
 .viewBtn {
   margin-left: auto;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-weight: 600;
   font-size: var(--text-xs);
 }

@@ -10,7 +10,7 @@
 .backBtn {
   background: none;
   border: none;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-size: 14px;
   cursor: pointer;
   margin-bottom: 16px;
@@ -81,7 +81,7 @@
 }
 
 .tab.activeTab {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   border-bottom-color: var(--color-accent);
   font-weight: 600;
 }
@@ -121,7 +121,7 @@
   flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   padding-top: 3px;
   min-width: 48px;
   opacity: 0.7;
@@ -194,7 +194,7 @@
 }
 
 .assignee {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-weight: 600;
 }
 
@@ -248,7 +248,7 @@
   background: linear-gradient(135deg, rgba(123, 108, 246, 0.08), rgba(123, 108, 246, 0.03));
   border: 1px solid rgba(123, 108, 246, 0.2);
   border-radius: var(--radius-sm, 8px);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
@@ -276,7 +276,7 @@
   background: linear-gradient(135deg, rgba(123, 108, 246, 0.08), rgba(123, 108, 246, 0.03));
   border: 1px solid rgba(123, 108, 246, 0.2);
   border-radius: var(--radius-sm, 8px);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -408,7 +408,7 @@
 }
 
 .zohoSending {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-size: 13px;
   margin-top: 8px;
 }
@@ -433,7 +433,7 @@
 .zohoMiss { color: var(--color-text-muted); }
 
 .zohoRecordLink {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   text-decoration: none;
   font-weight: 600;
 }
