@@ -228,116 +228,6 @@ function stopCaptionTracking() {
   return intervals;
 }
 
-// ── Chat notice ───────────────────────────────────────────────────────────
-const CHAT_NOTICE = 'Hi everyone, this is an automated message: Unitty Recorder is transcribing this meeting for me so I can give my full attention to you.';
-
-function symbolButton(iconText) {
-  const icon = Array.from(document.querySelectorAll('.google-symbols')).find(i => i.textContent.trim() === iconText);
-  return icon?.closest('button') || null;
-}
-
-function waitFor(check, timeoutMs) {
-  return new Promise((resolve) => {
-    const started = Date.now();
-    const timer = setInterval(() => {
-      const found = check();
-      if (found || Date.now() - started > timeoutMs) { clearInterval(timer); resolve(found || null); }
-    }, 200);
-  });
-}
-
-// The box you type a message into. Meet has shipped it as a textarea, and other builds use a
-// contenteditable or a plain input, so it is found by looking around the send button rather than
-// by tag. The bottom-bar Gemini box is a contenteditable too, hence the send button as the anchor.
-function visibleChatInput() {
-  const isUsable = (el) => el && el.offsetParent !== null;
-  const send = symbolButton('send');
-  if (send) {
-    let node = send.parentElement;
-    for (let level = 0; level < 6 && node; level++) {
-      const field = Array.from(node.querySelectorAll('textarea, [contenteditable="true"], input[type="text"]')).find(isUsable);
-      if (field) return field;
-      node = node.parentElement;
-    }
-  }
-  return Array.from(document.querySelectorAll('textarea')).find(isUsable) || null;
-}
-
-function chatInputText(field) {
-  return ('value' in field ? field.value : field.textContent || '').trim();
-}
-
-function typeIntoChat(field, text) {
-  field.focus();
-  if ('value' in field) {
-    // Meet's input is framework-controlled: go through the native setter so it notices the change
-    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value')?.set;
-    if (setter) setter.call(field, text); else field.value = text;
-  } else {
-    field.textContent = text;
-  }
-  field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-}
-
-// Let the other participants know the call is being transcribed. Two things matter here: the
-// toolbar may not be ready the moment recording starts, so the chat button is waited for; and
-// clicking that button when the panel is already open closes it, so the panel is left as found.
-async function postChatNotice() {
-  let openedByUs = false;
-  // Shown on screen, not just logged: reading the console during a call is not realistic
-  const pageState = () => [
-    symbolButton('chat') ? 'chat+' : 'chat-',
-    symbolButton('send') ? 'send+' : 'send-',
-    'ta' + document.querySelectorAll('textarea').length,
-    'ce' + document.querySelectorAll('[contenteditable="true"]').length,
-    'in' + document.querySelectorAll('input[type="text"]').length,
-  ].join(' ');
-
-  const giveUp = (reason) => {
-    const state = pageState();
-    console.warn('[Unitty] Chat notice not posted:', reason, '|', state);
-    showNotification(`Unitty: chat notice failed — ${reason} [${state}]`, 'error');
-  };
-
-  try {
-    let input = visibleChatInput();
-    if (!input) {
-      const chatButton = await waitFor(() => symbolButton('chat'), 15000);
-      if (!chatButton) return giveUp('the chat button never appeared');
-      chatButton.click();
-      openedByUs = true;
-      input = await waitFor(visibleChatInput, 10000);
-    }
-    if (!input) return giveUp('the chat box did not open');
-
-    typeIntoChat(input, CHAT_NOTICE);
-    await new Promise(r => setTimeout(r, 400));
-    if (!chatInputText(input)) return giveUp('Meet did not accept the text');
-
-    const sendButton = symbolButton('send');
-    if (sendButton && !sendButton.disabled) sendButton.click();
-    await new Promise(r => setTimeout(r, 600));
-
-    // An empty box means it went; if the button did nothing, Enter is the other way to send
-    if (chatInputText(input)) {
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-      await new Promise(r => setTimeout(r, 600));
-    }
-
-    if (chatInputText(input)) return giveUp('the message stayed in the box');
-    console.log('[Unitty] Chat notice sent');
-  } catch (err) {
-    giveUp(err.message);
-  } finally {
-    if (openedByUs) {
-      // Meet redraws the panel after a message is posted; clicking too soon lands on nothing.
-      // One click only — a second one arrives mid-animation and opens the panel straight back up.
-      await new Promise(r => setTimeout(r, 1000));
-      symbolButton('chat')?.click();
-    }
-  }
-}
-
 // ── CRM notice ────────────────────────────────────────────────────────────
 // Shortly after recording starts, tell the user which people on this call are already in Zoho
 function showCrmNotice(meetingId) {
@@ -479,7 +369,6 @@ async function startRecording(meetingId, streamIdError) {
     removeBanner();
     showRecordingIndicator();
     startCaptionTracking();
-    setTimeout(postChatNotice, 1500);
     setTimeout(() => showCrmNotice(meetingId), 4000);
   } catch (err) {
     console.error('[Unitty] Recording failed:', err);
