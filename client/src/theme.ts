@@ -1,5 +1,5 @@
-// Dark is what Unitty looks like, so dark is the absence of a class and needs no stylesheet of
-// its own. Only "light" paints anything over it.
+// Light is the default the product is used in. The dark tokens are the base layer, and the
+// "light" class paints over them, so a light screen means the class is on.
 export type Theme = 'dark' | 'light' | 'system';
 
 const STORAGE_KEY = 'unitty-theme';
@@ -15,7 +15,7 @@ export function applyTheme(theme: Theme): void {
 
 export function storedTheme(): Theme {
   const saved = localStorage.getItem(STORAGE_KEY);
-  return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'dark';
+  return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'light';
 }
 
 // Kept in the browser as well as on the server: the choice has to survive a reload before the
