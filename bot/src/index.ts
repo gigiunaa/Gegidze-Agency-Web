@@ -78,6 +78,15 @@ const bot = await launchBot({ profileDir });
 let stopping = false;
 process.on('SIGINT', () => { stopping = true; });
 
+// A stop that comes from outside the process kills it between the recording and the writing, and
+// the call is gone. Given a time limit the bot ends itself, through the same path a real call's
+// ending takes, and the files are always written.
+const maxSeconds = Number(process.env.BOT_MAX_SECONDS) || 0;
+if (maxSeconds > 0) {
+  console.log(`Leaving by itself after ${maxSeconds}s.`);
+  setTimeout(() => { stopping = true; }, maxSeconds * 1000).unref();
+}
+
 try {
   console.log(`Joining ${meetUrl}...`);
   await joinCall(bot.page, meetUrl, 'Unitty Recorder');
@@ -91,6 +100,19 @@ try {
   console.log(stopping ? 'Stopped.' : 'The call ended.');
 } finally {
   report();
+  // Pull the per-track recordings out of the page and write them where they can be played
+  const recordings = await bot.page
+    .evaluate(() => (window as unknown as {
+      __unittyFinish?: () => Promise<{ id: string; bytes: number; base64: string }[]>;
+    }).__unittyFinish?.() ?? [])
+    .catch(() => [] as { id: string; bytes: number; base64: string }[]);
+
+  for (const rec of recordings) {
+    const file = path.join(outDir, `${rec.id}.webm`);
+    await fs.writeFile(file, Buffer.from(rec.base64, 'base64')).catch(() => {});
+    console.log(`  ${rec.id}: ${rec.bytes} bytes -> ${file}`);
+  }
+
   await leaveCall(bot.page).catch(() => {});
   await bot.close().catch(() => {});
 }

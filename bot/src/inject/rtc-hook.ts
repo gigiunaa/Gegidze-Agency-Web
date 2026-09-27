@@ -20,15 +20,36 @@ export const RTC_HOOK_SOURCE = `
   // single placeholder stream at level zero on a live call while three audio tracks were plainly
   // flowing, so the audio is taken where it certainly exists: at the track.
   const meters = [];
+  const entryChunks = [];
   let audioContext = null;
 
   function meter(track) {
     try {
       audioContext = audioContext || new AudioContext();
-      const source = audioContext.createMediaStreamSource(new MediaStream([track]));
+      const stream = new MediaStream([track]);
+
+      // Chrome only decodes a remote track that something is actually consuming. An analyser on
+      // its own is not enough — it reads silence for ever. Running the graph all the way to the
+      // speakers is, and a gain of zero means nothing comes out of them. A muted <audio> element
+      // does not work here: Chrome is free to skip decoding for something nobody can hear.
+      const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 512;
+      const silence = audioContext.createGain();
+      silence.gain.value = 0;
       source.connect(analyser);
+      analyser.connect(silence);
+      silence.connect(audioContext.destination);
+      audioContext.resume().catch(() => {});
+
+      // Recorded as well as measured. Whether the level meters work or not, the audio itself is
+      // what the product needs, and a file that can be played back settles what is really on
+      // this track far better than another number does.
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.start(1000);
+      entryChunks.push({ id: 'track' + (meters.length + 1), recorder, chunks });
       const buffer = new Float32Array(analyser.fftSize);
       const entry = { id: 'track' + (meters.length + 1), track, analyser, buffer };
       meters.push(entry);
@@ -91,6 +112,21 @@ export const RTC_HOOK_SOURCE = `
 
   window.__unittyReceiverCount = () => receivers.size;
 
+  window.__unittyFinish = async () => {
+    const out = [];
+    for (const e of entryChunks) {
+      if (e.recorder.state !== 'inactive') {
+        await new Promise((resolve) => { e.recorder.onstop = resolve; e.recorder.stop(); });
+      }
+      const blob = new Blob(e.chunks, { type: 'audio/webm' });
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+      out.push({ id: e.id, bytes: buf.length, base64: btoa(bin) });
+    }
+    return out;
+  };
+
   // Nothing here is guesswork-friendly: when no samples come out, the difference between "the
   // poll never ran", "the API is missing", "it returned nothing" and "it returned entries with no
   // level" decides what to fix, so all four are recorded.
@@ -102,6 +138,13 @@ export const RTC_HOOK_SOURCE = `
     const atMs = Date.now() - window.__unittyStartedAt;
     const dbg = window.__unittyDebug;
     dbg.polls++;
+
+    // The bot must not play the call out loud: in the same room as a participant that is a
+    // feedback loop, and the person ends up muting themselves. Silencing the elements rather
+    // than the whole browser keeps Chrome decoding the audio, which is what the meters read.
+    for (const el of document.querySelectorAll('audio, video')) {
+      if (el.volume !== 0) el.volume = 0;
+    }
     window.__unittyPollStats();
 
     // Loudness straight off each track: the peak sample in the current window. A track that is

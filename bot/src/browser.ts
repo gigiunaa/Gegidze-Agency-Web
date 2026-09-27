@@ -8,10 +8,13 @@ const CHROME_ARGS = [
   '--use-fake-device-for-media-stream',
   '--autoplay-policy=no-user-gesture-required',
   '--disable-blink-features=AutomationControlled',
-  // Silencing the speakers stops the bot echoing the call back into the room it sits in, but it
-  // is off by default while it is still unproven whether Chrome keeps decoding — and so keeps
-  // reporting audio levels — for a muted output.
-  ...(process.env.BOT_MUTE_AUDIO === 'true' ? ['--mute-audio'] : []),
+  // A bot is killed far more often than it is closed politely, and Chrome then greets the next
+  // run with a "restore pages?" bubble sitting over the join screen.
+  '--hide-crash-restore-bubble',
+  // Back on by default: it was turned off in case muting stopped Chrome decoding the audio, and
+  // that turned out to make no difference — the tracks read silent either way. Meanwhile the bot
+  // was echoing the call into the room and people muted themselves to stop it.
+  ...(process.env.BOT_MUTE_AUDIO === 'false' ? [] : ['--mute-audio']),
 ];
 
 export interface Bot {
