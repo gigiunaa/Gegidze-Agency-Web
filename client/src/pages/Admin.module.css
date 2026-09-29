@@ -179,3 +179,14 @@
 .confirmText strong {
   color: var(--color-text-primary);
 }
+
+/* Result of the one-off pass that writes missing email drafts */
+.backfillNote {
+  margin-bottom: var(--space-6);
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}

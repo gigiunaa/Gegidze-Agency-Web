@@ -363,6 +363,21 @@ export class DatabaseService {
     };
   }
 
+  // The newest summary per meeting, for those that never got a follow-up email
+  async summariesWithoutEmail(): Promise<{ meetingId: string; transcriptionId: string }[]> {
+    const res = await this.queryWithRetry(`
+      SELECT meeting_id, transcription_id FROM (
+        SELECT DISTINCT ON (meeting_id) meeting_id, transcription_id, email_draft
+        FROM summaries ORDER BY meeting_id, created_at DESC
+      ) latest
+      WHERE email_draft IS NULL
+    `);
+    return res.rows.map((row: Record<string, unknown>) => ({
+      meetingId: row.meeting_id as string,
+      transcriptionId: row.transcription_id as string,
+    }));
+  }
+
   // ─── Settings ─────────────────────────────────────────────────────
   async getSettings(userId: string): Promise<Record<string, string>> {
     const res = await this.queryWithRetry('SELECT key, value FROM settings WHERE user_id = $1', [userId]);

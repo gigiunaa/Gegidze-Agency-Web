@@ -48,6 +48,20 @@ export function AdminPage() {
   // Role change loading tracker
   const [roleLoading, setRoleLoading] = useState<string | null>(null);
 
+  // Meetings summarised before the follow-up email existed have none. This writes them from the
+  // transcripts already stored; the server answers straight away and works through them behind it.
+  const [backfill, setBackfill] = useState<'' | 'working' | string>('');
+
+  async function handleBackfill() {
+    setBackfill('working');
+    try {
+      const { started } = await api.summary.backfillEmails();
+      setBackfill(started === 0 ? 'Every meeting already has one.' : `Writing drafts for ${started} meeting(s) — refresh in a few minutes.`);
+    } catch (err) {
+      setBackfill(err instanceof Error ? err.message : 'Failed');
+    }
+  }
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -220,9 +234,14 @@ export function AdminPage() {
         title="Admin Panel"
         subtitle="Manage users and monitor platform activity"
         actions={
-          <Button variant="primary" size="md" onClick={() => setShowAddModal(true)}>
-            Add User
-          </Button>
+          <>
+            <Button variant="secondary" size="md" onClick={handleBackfill} disabled={backfill === 'working'}>
+              {backfill === 'working' ? 'Writing...' : 'Write missing email drafts'}
+            </Button>
+            <Button variant="primary" size="md" onClick={() => setShowAddModal(true)}>
+              Add User
+            </Button>
+          </>
         }
       />
 
@@ -241,6 +260,8 @@ export function AdminPage() {
           <StatCard label="Failed" value={stats.failedMeetings} variant="error" />
         </div>
       ) : null}
+
+      {backfill && backfill !== 'working' && <p className={styles.backfillNote}>{backfill}</p>}
 
       {/* Users section */}
       <section className={styles.section}>

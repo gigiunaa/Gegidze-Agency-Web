@@ -21,6 +21,31 @@ export function createSummariesRouter(db: DatabaseService): Router {
     }
   });
 
+  // The follow-up email arrived after these meetings were summarised. This writes one for each
+  // of them, from the transcript that is already stored — nothing is transcribed again.
+  router.post('/backfill-emails', async (req: AuthRequest, res) => {
+    if (req.userRole !== 'admin') return res.status(404).json({ error: 'Not found' });
+
+    const pending = await db.summariesWithoutEmail();
+    console.log(`Backfilling email drafts for ${pending.length} meeting(s)`);
+    res.json({ started: pending.length });
+
+    // Answered before the work starts: writing thirty drafts takes minutes, and a request left
+    // hanging that long is dropped by the proxy long before it finishes.
+    void (async () => {
+      let written = 0;
+      for (const row of pending) {
+        try {
+          await summaryService.generate(row.transcriptionId);
+          written++;
+        } catch (err) {
+          console.error(`Draft failed for ${row.meetingId}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+      console.log(`Email drafts written: ${written}/${pending.length}`);
+    })();
+  });
+
   router.get('/:meetingId', async (req: AuthRequest, res) => {
     const meeting = await db.getMeeting(req.params.meetingId as string);
     if (!meeting) {

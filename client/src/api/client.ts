@@ -112,6 +112,7 @@ export const api = {
   summary: {
     get: (meetingId: string) => get<Summary | null>(`/summaries/${meetingId}`),
     generate: (transcriptionId: string) => post('/summaries/generate', { transcriptionId }),
+    backfillEmails: () => post<{ started: number }>('/summaries/backfill-emails'),
   },
 
   google: {
