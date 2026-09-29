@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Meeting, Transcription, Summary, ZohoAttachment } from '../../../shared/types';
+import type { Meeting, Transcription, Summary, EmailDraft, ZohoAttachment } from '../../../shared/types';
 import styles from './MeetingDetail.module.css';
 
 export function MeetingDetailPage() {
@@ -214,8 +214,52 @@ function NotesView({ notes }: { notes: Summary }) {
       {notes.nextSteps.length > 0 && (
         <section className={styles.summarySection}><h3>Next steps</h3><ul>{notes.nextSteps.map((step, i) => <li key={i}>{step}</li>)}</ul></section>
       )}
+      {notes.emailDraft && <EmailDraftView draft={notes.emailDraft} />}
       <h3 className={styles.transcriptTitle}>Transcript</h3>
     </div>
+  );
+}
+
+// ── Follow-up email ───────────────────────────────────────────────────────
+// Written from the call, in the voice of whoever was on it. Nothing is sent from here: the
+// person reads it, changes what they want, and sends it themselves.
+function EmailDraftView({ draft }: { draft: EmailDraft }) {
+  const [copied, setCopied] = useState('');
+
+  async function copy(what: 'subject' | 'all', text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      setTimeout(() => setCopied(''), 2000);
+    } catch {
+      /* a browser that refuses the clipboard still shows the text to select by hand */
+    }
+  }
+
+  return (
+    <section className={styles.emailDraft}>
+      <div className={styles.emailHeader}>
+        <h3>Follow-up email</h3>
+        <button
+          className={styles.emailCopyBtn}
+          onClick={() => copy('all', `${draft.subject}
+
+${draft.body}`)}
+        >
+          {copied === 'all' ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+
+      <div className={styles.emailSubjectRow}>
+        <span className={styles.emailLabel}>Subject</span>
+        <span className={styles.emailSubject}>{draft.subject}</span>
+        <button className={styles.emailCopySmall} onClick={() => copy('subject', draft.subject)}>
+          {copied === 'subject' ? '✓' : 'Copy'}
+        </button>
+      </div>
+
+      <p className={styles.emailBody}>{draft.body}</p>
+    </section>
   );
 }
 

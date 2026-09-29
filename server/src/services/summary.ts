@@ -1,4 +1,4 @@
-import type { NoteSection } from '../../../shared/types';
+import type { EmailDraft, NoteSection } from '../../../shared/types';
 import type { DatabaseService } from './database';
 import { config } from '../config';
 import { generateJson, type GeminiOptions } from './gemini';
@@ -7,6 +7,7 @@ export interface Notes {
   overview: string;
   sections: NoteSection[];
   nextSteps: string[];
+  emailDraft?: EmailDraft;
 }
 
 // Shorter transcripts (a test call, a hello) don't need notes
@@ -25,8 +26,13 @@ const NOTES_SCHEMA = {
       },
     },
     nextSteps: { type: 'ARRAY', items: { type: 'STRING' } },
+    emailDraft: {
+      type: 'OBJECT',
+      properties: { subject: { type: 'STRING' }, body: { type: 'STRING' } },
+      required: ['subject', 'body'],
+    },
   },
-  required: ['overview', 'sections', 'nextSteps'],
+  required: ['overview', 'sections', 'nextSteps', 'emailDraft'],
 };
 
 const NOTES_PROMPT = [
@@ -36,6 +42,10 @@ const NOTES_PROMPT = [
   '- overview: 2–3 წინადადება — რაზე იყო საუბარი და რა შედეგით დასრულდა.',
   '- sections: 3–6 თემა. heading — მოკლე სათაური (2–4 სიტყვა); text — 1–3 წინადადება ფაქტებით: რიცხვები, ვადები, სახელები, გადაწყვეტილებები.',
   '- nextSteps: შეთანხმებული შემდეგი ნაბიჯები, ვინ და როდის. თუ არ იყო — ცარიელი სია.',
+  '- emailDraft: შეხვედრის შემდგომი წერილი მეორე მხარისთვის. subject — მოკლე სათაური. body — თავად წერილი.',
+  '  წერილი დაწერე პირველ პირში, იმ ადამიანის სახელით, ვინც ჩვენი მხრიდან იყო ზარზე — თითქოს ის თვითონ წერს.',
+  '  დაიწყე მისალმებით სახელით, მადლობა საუბრისთვის, 2–4 წინადადება შეჯამება რაზე შევთანხმდით, შემდეგ ნაბიჯები, და დაასრულე ხელმოწერით.',
+  '  მხოლოდ ის დაწერე, რაზეც ტრანსკრიპტში იყო საუბარი. ფასები, ვადები და სახელები ზუსტად გადმოიტანე. არაფერი გამოიგონო.',
   'პროდუქტების და კომპანიების სახელები (Google Ads, Zoho, WhatsApp) ლათინურად დატოვე. ტექსტში მხოლოდ ქართული ასოები გამოიყენე, სხვა ანბანის ასოები არ აურიო.',
   '',
   'ტრანსკრიპტი:',
@@ -48,6 +58,10 @@ export async function buildNotes(transcript: string, options: Pick<GeminiOptions
     overview: result.overview?.trim() ?? '',
     sections: (result.sections ?? []).filter(s => s.heading && s.text),
     nextSteps: (result.nextSteps ?? []).filter(Boolean),
+    // A draft with no subject or no body is worse than none: it looks ready to send and is not
+    ...(result.emailDraft?.subject?.trim() && result.emailDraft?.body?.trim()
+      ? { emailDraft: { subject: result.emailDraft.subject.trim(), body: result.emailDraft.body.trim() } }
+      : {}),
   };
 }
 

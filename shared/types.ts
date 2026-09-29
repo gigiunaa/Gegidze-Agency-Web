@@ -105,7 +105,14 @@ export interface Summary {
   overview: string;
   sections: NoteSection[];
   nextSteps: string[];
+  // A follow-up email to the other side, written as the person who was on the call
+  emailDraft?: EmailDraft;
   createdAt: string;
+}
+
+export interface EmailDraft {
+  subject: string;
+  body: string;
 }
 
 export interface NoteSection {

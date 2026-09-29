@@ -439,3 +439,88 @@
 }
 
 .zohoRecordLink:hover { text-decoration: underline; }
+
+/* ─── Follow-up email ───────────────────────────────────────────────────── */
+.emailDraft {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.emailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.emailHeader h3 {
+  margin: 0;
+}
+
+.emailCopyBtn {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 8px 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.emailCopyBtn:hover {
+  background: var(--color-accent-hover);
+}
+
+.emailSubjectRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.emailLabel {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.emailSubject {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.emailCopySmall {
+  background: none;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.emailCopySmall:hover {
+  background: var(--color-bg-hover);
+}
+
+/* The draft is written with real line breaks; they are the paragraphs of the letter */
+.emailBody {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+  margin: 0;
+}

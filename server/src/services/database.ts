@@ -136,6 +136,9 @@ export class DatabaseService {
     await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_meetings_user ON meetings(user_id)`);
     await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_recordings_meeting ON recordings(meeting_id)`);
     await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_transcriptions_meeting ON transcriptions(meeting_id)`);
+    // The follow-up email came later than the rest of the notes
+    await this.queryWithRetry(`ALTER TABLE summaries ADD COLUMN IF NOT EXISTS email_draft TEXT`);
+
     await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_summaries_meeting ON summaries(meeting_id)`);
   }
 
@@ -326,9 +329,10 @@ export class DatabaseService {
   async createSummary(summary: Omit<Summary, 'id' | 'createdAt'>): Promise<Summary> {
     const id = crypto.randomUUID();
     await this.queryWithRetry(`
-      INSERT INTO summaries (id, meeting_id, transcription_id, overview, key_points, action_items, decisions)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [id, summary.meetingId, summary.transcriptionId, summary.overview, JSON.stringify(summary.sections), JSON.stringify(summary.nextSteps), "[]"]);
+      INSERT INTO summaries (id, meeting_id, transcription_id, overview, key_points, action_items, decisions, email_draft)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [id, summary.meetingId, summary.transcriptionId, summary.overview, JSON.stringify(summary.sections), JSON.stringify(summary.nextSteps), "[]",
+        summary.emailDraft ? JSON.stringify(summary.emailDraft) : null]);
     return (await this.getSummaryById(id))!;
   }
 
@@ -353,6 +357,8 @@ export class DatabaseService {
       // Notes live in the original key_points / action_items columns
       sections: typeof row.key_points === 'string' ? JSON.parse(row.key_points) : row.key_points,
       nextSteps: typeof row.action_items === 'string' ? JSON.parse(row.action_items) : row.action_items,
+      // Meetings summarised before the email draft existed simply have none
+      ...(row.email_draft ? { emailDraft: typeof row.email_draft === 'string' ? JSON.parse(row.email_draft) : row.email_draft } : {}),
       createdAt: row.created_at as string,
     };
   }
