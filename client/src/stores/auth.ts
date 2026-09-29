@@ -12,10 +12,23 @@ interface AuthState {
   loadFromStorage: () => void;
 }
 
+// Read before the first render, not in an effect afterwards. Loading it later meant that opening
+// a page directly — /admin, or any link pasted into a fresh tab — was judged against a signed-out
+// store and bounced to the dashboard before the session had even been read.
+function fromStorage(): Pick<AuthState, 'user' | 'token' | 'isAuthenticated'> {
+  try {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) return { user: JSON.parse(userStr) as User, token, isAuthenticated: true };
+  } catch {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }
+  return { user: null, token: null, isAuthenticated: false };
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
+  ...fromStorage(),
 
   login: async (email, password) => {
     const { token, user } = await api.auth.login(email, password);
@@ -37,17 +50,5 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, token: null, isAuthenticated: false });
   },
 
-  loadFromStorage: () => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr) as User;
-        set({ user, token, isAuthenticated: true });
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-  },
+  loadFromStorage: () => set(fromStorage()),
 }));
