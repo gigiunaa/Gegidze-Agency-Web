@@ -81,6 +81,11 @@ process.on('SIGINT', () => { stopping = true; });
 // A stop that comes from outside the process kills it between the recording and the writing, and
 // the call is gone. Given a time limit the bot ends itself, through the same path a real call's
 // ending takes, and the files are always written.
+// Windows will not pass a polite signal to this process, so "stop now" is a file. The loop
+// watches for it, which means a recording can always be ended without killing anything.
+const stopFile = path.join(outDir, 'stop');
+await fs.rm(stopFile, { force: true }).catch(() => {});
+
 const maxSeconds = Number(process.env.BOT_MAX_SECONDS) || 0;
 if (maxSeconds > 0) {
   console.log(`Leaving by itself after ${maxSeconds}s.`);
@@ -92,7 +97,30 @@ try {
   await joinCall(bot.page, meetUrl, 'Unitty Recorder');
   console.log('In the call. Press Ctrl+C to stop.');
 
-  while (!stopping && (await isInCall(bot.page).catch(() => false))) {
+  const started = await bot.page
+    .evaluate(() => (window as unknown as {
+      __unittyStartTabAudio?: () => Promise<{ state: string; error: string; surface?: string }>;
+    }).__unittyStartTabAudio?.())
+    .catch((err: Error) => ({ state: 'failed', error: err.message, surface: '' }));
+  console.log(started?.state === 'recording' ? `Recording the call (captured surface: ${started.surface ?? '?'}).` : `NOT recording: ${started?.error ?? 'no recorder'}`);
+
+  // Meet redraws its controls constantly, and the hang-up button goes missing for a moment while
+  // it does. Believing the first frame that lacks it ended runs after twenty seconds and threw
+  // the recording away, so the call is only over once it has stayed gone.
+  const GONE_FOR_MS = 15000;
+  let goneSince: number | null = null;
+
+  for (;;) {
+    if (stopping) break;
+    const inCall = await isInCall(bot.page).catch(() => false);
+    if (inCall) {
+      goneSince = null;
+    } else {
+      goneSince ??= Date.now();
+      if (Date.now() - goneSince >= GONE_FOR_MS) break;
+    }
+
+    if (await fs.stat(stopFile).then(() => true).catch(() => false)) { stopping = true; break; }
     await drain(bot.page);
     await new Promise((r) => setTimeout(r, 2000));
   }
@@ -100,6 +128,21 @@ try {
   console.log(stopping ? 'Stopped.' : 'The call ended.');
 } finally {
   report();
+  // The call itself, as everyone in it heard it
+  const call = await bot.page
+    .evaluate(() => (window as unknown as {
+      __unittyStopTabAudio?: () => Promise<{ state: string; error: string; bytes: number; base64: string; chunkCount?: number; trackState?: string; recorderState?: string }>;
+    }).__unittyStopTabAudio?.())
+    .catch(() => undefined);
+
+  if (call && call.bytes > 0) {
+    const callFile = path.join(outDir, `call-${Date.now()}.webm`);
+    await fs.writeFile(callFile, Buffer.from(call.base64, 'base64'));
+    console.log(`call audio: ${call.bytes} bytes -> ${callFile}`);
+  } else {
+    console.log(`call audio: nothing recorded — chunks ${call?.chunkCount ?? '?'}, track ${call?.trackState ?? '?'}, recorder ${call?.recorderState ?? '?'}${call?.error ? `, ${call.error}` : ''}`);
+  }
+
   // Pull the per-track recordings out of the page and write them where they can be played
   const recordings = await bot.page
     .evaluate(() => (window as unknown as {

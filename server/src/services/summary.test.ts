@@ -84,3 +84,13 @@ test('a meeting with no email in it still returns the notes', async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('the email is written by the person whose account this is', async () => {
+  await withFakeGemini(async (baseUrl, received) => {
+    await buildNotes(transcript, { apiKey: 'k', model: 'm', baseUrl }, 'გიგი გიუნაშვილი');
+
+    // Without being told, the model picks a name out of the transcript and writes as the wrong
+    // person — it signed one draft as the customer and addressed it to the account owner
+    assert.match(received.body, /გიგი გიუნაშვილი/);
+  });
+});

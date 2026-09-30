@@ -42,8 +42,9 @@ const NOTES_PROMPT = [
   '- overview: 2–3 წინადადება — რაზე იყო საუბარი და რა შედეგით დასრულდა.',
   '- sections: 3–6 თემა. heading — მოკლე სათაური (2–4 სიტყვა); text — 1–3 წინადადება ფაქტებით: რიცხვები, ვადები, სახელები, გადაწყვეტილებები.',
   '- nextSteps: შეთანხმებული შემდეგი ნაბიჯები, ვინ და როდის. თუ არ იყო — ცარიელი სია.',
-  '- emailDraft: შეხვედრის შემდგომი წერილი მეორე მხარისთვის. subject — მოკლე სათაური. body — თავად წერილი.',
-  '  წერილი დაწერე პირველ პირში, იმ ადამიანის სახელით, ვინც ჩვენი მხრიდან იყო ზარზე — თითქოს ის თვითონ წერს.',
+  '- emailDraft: შეხვედრის შემდგომი წერილი დანარჩენი მონაწილეებისთვის. subject — მოკლე სათაური. body — თავად წერილი.',
+  '  წერილს წერს {{AUTHOR}} — პირველ პირში, თითქოს ის თვითონ წერს, და ხელს აწერს თავისი სახელით.',
+  '  მიმართე ზარის დანარჩენ მონაწილეებს. {{AUTHOR}}-ს წერილი არ მისწერო — ის ავტორია, არა ადრესატი.',
   '  დაიწყე მისალმებით სახელით, მადლობა საუბრისთვის, 2–4 წინადადება შეჯამება რაზე შევთანხმდით, შემდეგ ნაბიჯები, და დაასრულე ხელმოწერით.',
   '  მხოლოდ ის დაწერე, რაზეც ტრანსკრიპტში იყო საუბარი. ფასები, ვადები და სახელები ზუსტად გადმოიტანე. არაფერი გამოიგონო.',
   'პროდუქტების და კომპანიების სახელები (Google Ads, Zoho, WhatsApp) ლათინურად დატოვე. ტექსტში მხოლოდ ქართული ასოები გამოიყენე, სხვა ანბანის ასოები არ აურიო.',
@@ -51,9 +52,16 @@ const NOTES_PROMPT = [
   'ტრანსკრიპტი:',
 ].join('\n');
 
-// Meeting notes in Georgian from the transcript text
-export async function buildNotes(transcript: string, options: Pick<GeminiOptions, 'apiKey' | 'model' | 'baseUrl' | 'retryDelayMs'>): Promise<Notes> {
-  const result = await generateJson<Partial<Notes>>([{ text: `${NOTES_PROMPT}\n${transcript}` }], NOTES_SCHEMA, options);
+// `author` is whose account the meeting belongs to. Left to itself the model picks a name out of
+// the transcript and writes as the wrong person — one draft came back signed by the customer and
+// addressed to the very person who was meant to be sending it.
+export async function buildNotes(
+  transcript: string,
+  options: Pick<GeminiOptions, 'apiKey' | 'model' | 'baseUrl' | 'retryDelayMs'>,
+  author = '',
+): Promise<Notes> {
+  const prompt = NOTES_PROMPT.replaceAll('{{AUTHOR}}', author || 'ის, ვინც ჩვენი მხრიდან იყო ზარზე');
+  const result = await generateJson<Partial<Notes>>([{ text: `${prompt}\n${transcript}` }], NOTES_SCHEMA, options);
   return {
     overview: result.overview?.trim() ?? '',
     sections: (result.sections ?? []).filter(s => s.heading && s.text),
@@ -84,8 +92,15 @@ export class SummaryService {
       return;
     }
 
+    const meeting = await this.db.getMeeting(transcription.meetingId);
+    const owner = meeting ? await this.db.getUserById(meeting.userId) : undefined;
+
     console.log(`Writing notes for meeting ${transcription.meetingId} (${wordCount} words)...`);
-    const notes = await buildNotes(transcription.fullText, { apiKey: config.geminiApiKey, model: config.transcriptionModel });
+    const notes = await buildNotes(
+      transcription.fullText,
+      { apiKey: config.geminiApiKey, model: config.transcriptionModel },
+      owner?.name ?? '',
+    );
 
     await this.db.createSummary({
       meetingId: transcription.meetingId,
