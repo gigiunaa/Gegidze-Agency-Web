@@ -335,6 +335,23 @@ async function startRecording(meetingId, streamIdError) {
       const baseName = recordingName();
       saveLocally(micBlob, `${baseName} — my voice.webm`);
 
+      // Twice now a recording has come back a fraction of the length of the call it was meant to
+      // capture, and both times nobody found out for days, by which point the meeting was gone.
+      // Opus at this bitrate runs around 4 KB per second, so a file far below that for the time
+      // elapsed means the recorder stopped early. Said out loud, on screen, while the call is
+      // still open and there is still something that can be done about it.
+      const seconds = recordingStartTime ? (Date.now() - recordingStartTime) / 1000 : 0;
+      const expected = seconds * 2000; // deliberately half of what Opus normally produces
+      if (seconds > 30 && micBlob.size < expected) {
+        const got = Math.round(micBlob.size / 1024);
+        const mins = Math.round(seconds / 60);
+        showNotification(
+          `Unitty: WARNING — the call ran ${mins} min but only ${got} KB was recorded. The recording stopped early. Do not rely on it.`,
+          'error',
+        );
+        console.error(`[Unitty] Short recording: ${micBlob.size} bytes for ${seconds.toFixed(0)}s`);
+      }
+
       micStream?.getTracks().forEach(t => t.stop());
       chunks = [];
       micStream = null;
