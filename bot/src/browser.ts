@@ -1,12 +1,20 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import { RTC_HOOK_SOURCE } from './inject/rtc-hook';
 import { TAB_AUDIO_SOURCE } from './inject/tab-audio';
+
+const SILENCE_WAV = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'silence.wav');
 
 // Meet checks for a camera and a microphone before it will let anyone in, so Chrome is given fake
 // ones and told to grant them without asking. The bot neither speaks nor is seen; it only listens.
 const CHROME_ARGS = [
   '--use-fake-ui-for-media-stream',
   '--use-fake-device-for-media-stream',
+  // Chrome's fake microphone is a beep that repeats twice a second, and capturing the tab picks
+  // it up: every recording came back as a tick, with no call audio in it at all. Feeding it a
+  // silent file instead gives Meet the device it insists on and leaves the recording clean.
+  `--use-file-for-fake-audio-capture=${SILENCE_WAV}`,
   '--autoplay-policy=no-user-gesture-required',
   '--disable-blink-features=AutomationControlled',
   // A bot is killed far more often than it is closed politely, and Chrome then greets the next
