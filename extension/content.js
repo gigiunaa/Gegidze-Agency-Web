@@ -42,21 +42,32 @@ function sendToBackground(message) {
 // Meet shows a "call_end" (red phone) icon only while you are in the call. The icon name is
 // the same in every UI language, unlike button labels.
 function isInCall() {
-  return Array.from(document.querySelectorAll('i')).some(i => i.textContent.trim() === 'call_end');
+  // The hang-up icon has shipped as both <i> and <span>, so the tag is not part of the test
+  return Array.from(document.querySelectorAll('i, span, .google-symbols'))
+    .some(el => el.textContent.trim() === 'call_end');
 }
 
 let joinedNotified = false;
 // The call can end without the Stop button ever being pressed — someone hangs up, or the host
 // ends it for everyone. Recording on past that point is how a call ends up never being saved.
+//
+// But the opposite mistake is far worse, and it happened: an hour-long call came back as two
+// seconds of audio because the icon was not found at the moment recording began, and this ended
+// it six seconds later. So the call must first be SEEN to be running before its ending can be
+// believed, and the wait after that is long enough to sit through Meet redrawing itself.
 let leftCallSince = null;
-const LEFT_CALL_GRACE_MS = 6000;
+let sawCallWhileRecording = false;
+const LEFT_CALL_GRACE_MS = 20000;
 
 setInterval(() => {
   const inCall = isInCall();
+  const recording = mediaRecorder && mediaRecorder.state !== 'inactive';
+  if (!recording) sawCallWhileRecording = false;
 
   if (inCall) {
     leftCallSince = null;
-  } else if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    if (recording) sawCallWhileRecording = true;
+  } else if (recording && sawCallWhileRecording) {
     // A brief absence of the icon happens while Meet redraws, so wait before believing it
     leftCallSince ??= Date.now();
     if (Date.now() - leftCallSince >= LEFT_CALL_GRACE_MS) {
