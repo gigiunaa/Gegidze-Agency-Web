@@ -51,6 +51,8 @@ app.use((_req, res, next) => {
   // Without this the browser keeps trying plain HTTP first and shows the site as "not secure"
   // until the redirect lands. Told once, it goes straight to HTTPS from then on.
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // Without this the browser hides the renewed token from the page that needs to save it
+  res.setHeader('Access-Control-Expose-Headers', 'X-Renewed-Token');
   next();
 });
 

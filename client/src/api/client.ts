@@ -4,6 +4,15 @@ function getToken(): string | null {
   return localStorage.getItem('token');
 }
 
+// The server hands back a fresh token once the current one is past halfway, so anyone who keeps
+// using the product is never asked to sign in again.
+function keepRenewedToken(res: Response): void {
+  const renewed = res.headers.get('X-Renewed-Token');
+  if (renewed) {
+    try { localStorage.setItem('token', renewed); } catch { /* nothing to do but carry on */ }
+  }
+}
+
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -23,6 +32,7 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers,
   });
+  keepRenewedToken(res);
 
   if (res.status === 401) {
     localStorage.removeItem('token');
@@ -66,6 +76,7 @@ async function downloadFile(url: string, fileName: string): Promise<void> {
   const res = await fetch(`${API_BASE}${url}`, {
     headers: { Authorization: `Bearer ${getToken() ?? ''}` },
   });
+  keepRenewedToken(res);
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: 'Download failed' }));
     throw new Error(error.error || 'Download failed');

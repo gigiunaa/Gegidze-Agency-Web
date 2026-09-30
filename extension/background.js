@@ -107,6 +107,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const res = await fetch(`${API_BASE}/meetings/${msg.meetingId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          keepRenewedToken(res);
           if (!res.ok) throw new Error(`status check failed: ${res.status}`);
           const meeting = await res.json();
           sendResponse({ status: meeting?.status, error: meeting?.errorMessage });
@@ -133,6 +134,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const res = await fetch(`${API_BASE}/zoho/lookup/${msg.meetingId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          keepRenewedToken(res);
           if (!res.ok) throw new Error(`lookup failed: ${res.status}`);
           sendResponse(await res.json());
         } catch (e) {
@@ -175,6 +177,13 @@ async function uploadSpeakerTrack(recordingId, saveAs) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+// The server renews the token once it is past halfway, so a recorder left running for months
+// never stops working — and nobody is sent back to the login screen mid-call.
+function keepRenewedToken(res) {
+  const renewed = res.headers.get('X-Renewed-Token');
+  if (renewed) chrome.storage.local.set({ authToken: renewed });
+}
+
 function getAuthToken() {
   return new Promise((resolve) => {
     chrome.storage.local.get(['authToken'], (data) => {
@@ -192,6 +201,7 @@ async function apiRequest(path, method, body, token) {
     },
     body: JSON.stringify(body),
   });
+  keepRenewedToken(res);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }

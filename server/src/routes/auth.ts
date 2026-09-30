@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { signToken } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
 
 export function createAuthRouter(db: DatabaseService): Router {
@@ -23,7 +24,7 @@ export function createAuthRouter(db: DatabaseService): Router {
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await db.createUser(email, passwordHash, name);
 
-      const token = jwt.sign({ userId: user.id, role: user.role }, config.jwtSecret, { expiresIn: '7d' });
+      const token = signToken(user.id, user.role);
 
       return res.json({
         token,
@@ -53,7 +54,7 @@ export function createAuthRouter(db: DatabaseService): Router {
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
-      const token = jwt.sign({ userId: user.id, role: user.role }, config.jwtSecret, { expiresIn: '7d' });
+      const token = signToken(user.id, user.role);
 
       return res.json({
         token,
