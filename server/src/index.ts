@@ -124,12 +124,31 @@ async function start() {
     console.error('Server running but database unavailable — check DATABASE_URL');
   }
 
-  // Graceful shutdown
-  process.on('SIGINT', async () => {
-    await db.close();
-    server.close();
-    process.exit(0);
-  });
+  // Railway stops a container with SIGTERM, not SIGINT. With nothing listening for it Node died
+  // on the spot: every deploy reported the outgoing container as crashed, and any recording being
+  // uploaded at that moment was cut off half-way. Now new connections are refused, requests
+  // already in flight are allowed to finish, and only then does the process exit.
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} received — finishing requests in flight before stopping`);
+
+    // Never hang on a request that will not end: leave cleanly before Railway gives up and kills us
+    const deadline = setTimeout(() => {
+      console.warn('Requests still open at the deadline — stopping anyway');
+      process.exit(0);
+    }, 25_000);
+    deadline.unref();
+
+    server.close(async () => {
+      await db.close().catch(() => {});
+      console.log('Stopped cleanly');
+      process.exit(0);
+    });
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 start();
