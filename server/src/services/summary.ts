@@ -26,13 +26,14 @@ const NOTES_SCHEMA = {
       },
     },
     nextSteps: { type: 'ARRAY', items: { type: 'STRING' } },
+    isClientMeeting: { type: 'BOOLEAN' },
     emailDraft: {
       type: 'OBJECT',
       properties: { subject: { type: 'STRING' }, body: { type: 'STRING' } },
       required: ['subject', 'body'],
     },
   },
-  required: ['overview', 'sections', 'nextSteps', 'emailDraft'],
+  required: ['overview', 'sections', 'nextSteps', 'isClientMeeting', 'emailDraft'],
 };
 
 const NOTES_PROMPT = [
@@ -42,11 +43,16 @@ const NOTES_PROMPT = [
   '- overview: 2–3 წინადადება — რაზე იყო საუბარი და რა შედეგით დასრულდა.',
   '- sections: 3–6 თემა. heading — მოკლე სათაური (2–4 სიტყვა); text — 1–3 წინადადება ფაქტებით: რიცხვები, ვადები, სახელები, გადაწყვეტილებები.',
   '- nextSteps: შეთანხმებული შემდეგი ნაბიჯები, ვინ და როდის. თუ არ იყო — ცარიელი სია.',
-  '- emailDraft: შეხვედრის შემდგომი წერილი დანარჩენი მონაწილეებისთვის. subject — მოკლე სათაური. body — თავად წერილი.',
-  '  წერილს წერს {{AUTHOR}} — პირველ პირში, თითქოს ის თვითონ წერს, და ხელს აწერს თავისი სახელით.',
-  '  მიმართე ზარის დანარჩენ მონაწილეებს. {{AUTHOR}}-ს წერილი არ მისწერო — ის ავტორია, არა ადრესატი.',
-  '  დაიწყე მისალმებით სახელით, მადლობა საუბრისთვის, 2–4 წინადადება შეჯამება რაზე შევთანხმდით, შემდეგ ნაბიჯები, და დაასრულე ხელმოწერით.',
-  '  მხოლოდ ის დაწერე, რაზეც ტრანსკრიპტში იყო საუბარი. ფასები, ვადები და სახელები ზუსტად გადმოიტანე. არაფერი გამოიგონო.',
+  '- isClientMeeting: true, თუ ზარზე იყო კლიენტი ან გარე კომპანიის წარმომადგენელი. false, თუ მხოლოდ ჩვენი გუნდის წევრები საუბრობდნენ ერთმანეთში.',
+  '- emailDraft: წერილი კლიენტს ზარის შემდეგ. თუ isClientMeeting არის false, მაინც შეავსე, მაგრამ ის არ გამოჩნდება.',
+  '  წერილს წერს {{AUTHOR}}, პირველ პირში, და ხელს აწერს მხოლოდ სახელით.',
+  '  ადრესატს მიმართე მეორე პირში, თავაზიანი „თქვენ“-ით. ადრესატზე არასდროს ილაპარაკო მესამე პირში და მის სახელს ტექსტში ნუ გაიმეორებ.',
+  '  მისალმება: თუ ადრესატი ერთია — „გამარჯობა, [სახელი],“. თუ რამდენიმეა — უბრალოდ „გამარჯობა,“. ერთი სახელი ორჯერ არ დაწერო.',
+  '  სტრუქტურა: ერთი წინადადება მადლობა; ერთი-ორი წინადადება რაზე შევთანხმდით; შემდეგ ნაბიჯები — რას გავაკეთებ მე და რას თქვენ, ვადებით.',
+  '  მაქსიმუმ 90 სიტყვა. შეხვედრის ჩანაწერებს ნუ გაიმეორებ — მხოლოდ ის, რაც კლიენტს სჭირდება შემდეგი ნაბიჯისთვის.',
+  '  ფასები, ვადები და სახელები ზუსტად გადმოიტანე. არაფერი გამოიგონო.',
+  '  subject — კონკრეტული, 4–8 სიტყვა; არა „შეხვედრის შეჯამება“.',
+  '  body დაყავი ხაზებად: მისალმება ცალკე ხაზზე, შემდეგ ცარიელი ხაზი, ტექსტი, ცარიელი ხაზი, და ბოლოს „პატივისცემით,“ და სახელი ცალ-ცალკე ხაზზე.',
   'პროდუქტების და კომპანიების სახელები (Google Ads, Zoho, WhatsApp) ლათინურად დატოვე. ტექსტში მხოლოდ ქართული ასოები გამოიყენე, სხვა ანბანის ასოები არ აურიო.',
   '',
   'ტრანსკრიპტი:',
@@ -61,13 +67,15 @@ export async function buildNotes(
   author = '',
 ): Promise<Notes> {
   const prompt = NOTES_PROMPT.replaceAll('{{AUTHOR}}', author || 'ის, ვინც ჩვენი მხრიდან იყო ზარზე');
-  const result = await generateJson<Partial<Notes>>([{ text: `${prompt}\n${transcript}` }], NOTES_SCHEMA, options);
+  const result = await generateJson<Partial<Notes> & { isClientMeeting?: boolean }>([{ text: `${prompt}\n${transcript}` }], NOTES_SCHEMA, options);
   return {
     overview: result.overview?.trim() ?? '',
     sections: (result.sections ?? []).filter(s => s.heading && s.text),
     nextSteps: (result.nextSteps ?? []).filter(Boolean),
-    // A draft with no subject or no body is worse than none: it looks ready to send and is not
-    ...(result.emailDraft?.subject?.trim() && result.emailDraft?.body?.trim()
+    // A draft with no subject or no body is worse than none: it looks ready to send and is not.
+    // An internal meeting gets none at all — there is no client to send it to, and the attempt
+    // produced a letter to colleagues reciting the minutes back at them.
+    ...(result.isClientMeeting !== false && result.emailDraft?.subject?.trim() && result.emailDraft?.body?.trim()
       ? { emailDraft: { subject: result.emailDraft.subject.trim(), body: result.emailDraft.body.trim() } }
       : {}),
   };

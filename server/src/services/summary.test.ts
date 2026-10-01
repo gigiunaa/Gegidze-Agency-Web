@@ -94,3 +94,30 @@ test('the email is written by the person whose account this is', async () => {
     assert.match(received.body, /გიგი გიუნაშვილი/);
   });
 });
+
+// A team talking among themselves has no client to write to. Drafting one anyway produced a letter
+// to colleagues that recited the minutes back at them and talked about the reader in the third person.
+test('an internal meeting gets no client email', async () => {
+  const internal = { ...notes, isClientMeeting: false };
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(internal) }] } }] }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    const result = await buildNotes(transcript, { apiKey: 'k', model: 'm', baseUrl: `http://127.0.0.1:${port}` });
+    assert.equal(result.emailDraft, undefined);
+    assert.equal(result.overview, notes.overview);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('the model is told to speak to the reader, not about them, and to keep it short', async () => {
+  await withFakeGemini(async (baseUrl, received) => {
+    await buildNotes(transcript, { apiKey: 'k', model: 'm', baseUrl }, 'თამარი');
+    assert.match(received.body, /მეორე პირში/);
+    assert.match(received.body, /isClientMeeting/);
+  });
+});
