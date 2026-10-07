@@ -139,6 +139,9 @@ export class DatabaseService {
     // The follow-up email came later than the rest of the notes
     await this.queryWithRetry(`ALTER TABLE summaries ADD COLUMN IF NOT EXISTS email_draft TEXT`);
 
+    // Set once a person renames a call, so the calendar never writes over the name they chose
+    await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS title_edited BOOLEAN NOT NULL DEFAULT false`);
+
     await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_summaries_meeting ON summaries(meeting_id)`);
   }
 
@@ -196,10 +199,18 @@ export class DatabaseService {
     await this.queryWithRetry('UPDATE meetings SET title = $1, updated_at = NOW() WHERE id = $2', [title, id]);
   }
 
+  // A name a person gave the call. Marked as theirs so later calendar lookups leave it alone.
+  async renameMeeting(id: string, title: string): Promise<void> {
+    await this.queryWithRetry('UPDATE meetings SET title = $1, title_edited = true, updated_at = NOW() WHERE id = $2', [title, id]);
+  }
+
   // What the Google Calendar invite told us about this call
   async updateMeetingCalendarInfo(id: string, info: { title?: string; calendarEventId: string; attendees: Attendee[] }): Promise<void> {
     await this.queryWithRetry(`
-      UPDATE meetings SET title = COALESCE($1, title), calendar_event_id = $2, attendees = $3, updated_at = NOW() WHERE id = $4
+      UPDATE meetings
+      SET title = CASE WHEN title_edited THEN title ELSE COALESCE($1, title) END,
+          calendar_event_id = $2, attendees = $3, updated_at = NOW()
+      WHERE id = $4
     `, [info.title ?? null, info.calendarEventId, JSON.stringify(info.attendees), id]);
   }
 

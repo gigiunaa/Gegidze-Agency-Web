@@ -105,6 +105,7 @@ export const api = {
     get: (id: string) => get<Meeting | null>(`/meetings/${id}`),
     create: (data: Partial<Meeting>) => post<Meeting>('/meetings', data),
     delete: (id: string) => del<{ ok: boolean }>(`/meetings/${id}`),
+    rename: (id: string, title: string) => patch<Meeting>(`/meetings/${id}`, { title }),
   },
 
   recordings: {

@@ -38,7 +38,7 @@ export function MeetingDetailPage() {
       <button className={styles.backBtn} onClick={() => navigate('/meetings')}>&larr; Back</button>
 
       <div className={styles.header}>
-        <h1 className={styles.title}>{meeting.title}</h1>
+        <EditableTitle meeting={meeting} onRenamed={(title) => setMeeting({ ...meeting, title })} />
         <span className={styles.meta}>
           {new Date(meeting.startTime).toLocaleString()} &mdash; {new Date(meeting.endTime).toLocaleTimeString()}
         </span>
@@ -78,6 +78,70 @@ export function MeetingDetailPage() {
       <div className={styles.tabContent}>
         <TranscriptView transcription={transcription} />
       </div>
+    </div>
+  );
+}
+
+// ── Title ─────────────────────────────────────────────────────────────────
+// Calls arrive named by the calendar or by the time they started, which rarely says what they
+// were about. Clicking the name turns it into a box; Enter keeps it, Escape puts it back.
+function EditableTitle({ meeting, onRenamed }: { meeting: Meeting; onRenamed: (title: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(meeting.title);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function start() {
+    setDraft(meeting.title);
+    setError('');
+    setEditing(true);
+  }
+
+  async function save() {
+    const title = draft.trim();
+    if (!title) { setError('A name is required'); return; }
+    if (title === meeting.title) { setEditing(false); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await api.meetings.rename(meeting.id, title);
+      onRenamed(updated.title);
+      setEditing(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <h1 className={styles.title}>
+        <button className={styles.titleButton} onClick={start} title="Rename this call">
+          {meeting.title}
+          <span className={styles.titlePencil} aria-hidden="true">✎</span>
+        </button>
+      </h1>
+    );
+  }
+
+  return (
+    <div className={styles.titleEdit}>
+      <input
+        className={styles.titleInput}
+        value={draft}
+        autoFocus
+        maxLength={200}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+      />
+      <button className={styles.downloadBtn} onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+      <button className={styles.titleCancel} onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+      {error && <span className={styles.errorText}>{error}</span>}
     </div>
   );
 }

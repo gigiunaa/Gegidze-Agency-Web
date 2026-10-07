@@ -524,3 +524,63 @@
   color: var(--color-text-primary);
   margin: 0;
 }
+
+/* ─── Renaming a call ───────────────────────────────────────────────────── */
+/* The title itself is the button: it looks like a heading until the pointer is on it */
+.titleButton {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.titleButton:hover .titlePencil,
+.titleButton:focus-visible .titlePencil {
+  opacity: 1;
+}
+
+.titleButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.titlePencil {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  color: var(--color-text-muted);
+  opacity: 0.35;
+  transition: opacity var(--transition-fast);
+}
+
+.titleEdit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.titleInput {
+  flex: 1;
+  min-width: 260px;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+
+.titleCancel {
+  background: none;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  padding: 8px 18px;
+  font-size: 12px;
+  cursor: pointer;
+}

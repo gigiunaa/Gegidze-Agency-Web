@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
+import { cleanMeetingTitle } from '../services/meeting-title';
 
 export function createMeetingsRouter(db: DatabaseService): Router {
   const router = Router();
@@ -50,6 +51,19 @@ export function createMeetingsRouter(db: DatabaseService): Router {
       meetUrl: typeof meetUrl === 'string' && meetUrl.startsWith('https://meet.google.com/') ? meetUrl : undefined,
     });
     res.json(meeting);
+  });
+
+  // Rename a call. Its owner can, and so can an admin or manager, who already see every call.
+  router.patch('/:id', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.id as string);
+    if (!meeting || (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId)) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+    const title = cleanMeetingTitle(req.body?.title);
+    if (!title) return res.status(400).json({ error: 'A name is required' });
+
+    await db.renameMeeting(meeting.id, title);
+    return res.json({ ...meeting, title });
   });
 
   router.patch('/:id/status', async (req: AuthRequest, res) => {
