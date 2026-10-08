@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { AuthRequest } from '../middleware/auth';
 import type { DatabaseService } from '../services/database';
 import { SummaryService } from '../services/summary';
+import { cleanEmailDraft } from '../services/email-draft';
 
 export function createSummariesRouter(db: DatabaseService): Router {
   const router = Router();
@@ -44,6 +45,20 @@ export function createSummariesRouter(db: DatabaseService): Router {
       }
       console.log(`Email drafts written: ${written}/${pending.length}`);
     })();
+  });
+
+  // Edit the follow-up email. Its owner can, and so can an admin or manager.
+  router.patch('/:meetingId/email', async (req: AuthRequest, res) => {
+    const meeting = await db.getMeeting(req.params.meetingId as string);
+    if (!meeting || (req.userRole !== 'admin' && req.userRole !== 'manager' && meeting.userId !== req.userId)) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+    const draft = cleanEmailDraft(req.body);
+    if (!draft) return res.status(400).json({ error: 'A subject and a message are both required' });
+    if (!(await db.getSummary(meeting.id))) return res.status(404).json({ error: 'This call has no notes yet' });
+
+    await db.updateEmailDraft(meeting.id, draft);
+    return res.json(draft);
   });
 
   router.get('/:meetingId', async (req: AuthRequest, res) => {

@@ -73,7 +73,7 @@ export function MeetingDetailPage() {
 
       {transcription && <ZohoSection meeting={meeting} />}
 
-      {notes && <NotesView notes={notes} />}
+      {notes && <NotesView notes={notes} onEmailSaved={(emailDraft) => setNotes({ ...notes, emailDraft })} />}
 
       <div className={styles.tabContent}>
         <TranscriptView transcription={transcription} />
@@ -268,7 +268,7 @@ function ZohoSection({ meeting }: { meeting: Meeting }) {
 }
 
 // ── Notes (summary) ───────────────────────────────────────────────────────
-function NotesView({ notes }: { notes: Summary }) {
+function NotesView({ notes, onEmailSaved }: { notes: Summary; onEmailSaved: (d: EmailDraft) => void }) {
   return (
     <div className={styles.summary}>
       <section className={styles.summarySection}><h3>Summary</h3><p>{notes.overview}</p></section>
@@ -278,7 +278,7 @@ function NotesView({ notes }: { notes: Summary }) {
       {notes.nextSteps.length > 0 && (
         <section className={styles.summarySection}><h3>Next steps</h3><ul>{notes.nextSteps.map((step, i) => <li key={i}>{step}</li>)}</ul></section>
       )}
-      {notes.emailDraft && <EmailDraftView draft={notes.emailDraft} />}
+      {notes.emailDraft && <EmailDraftView meetingId={notes.meetingId} draft={notes.emailDraft} onSaved={onEmailSaved} />}
       <h3 className={styles.transcriptTitle}>Transcript</h3>
     </div>
   );
@@ -286,9 +286,14 @@ function NotesView({ notes }: { notes: Summary }) {
 
 // ── Follow-up email ───────────────────────────────────────────────────────
 // Written from the call, in the voice of whoever was on it. Nothing is sent from here: the
-// person reads it, changes what they want, and sends it themselves.
-function EmailDraftView({ draft }: { draft: EmailDraft }) {
+// person reads it, changes what they want — here or in their mail client — and sends it.
+function EmailDraftView({ meetingId, draft, onSaved }: { meetingId: string; draft: EmailDraft; onSaved: (d: EmailDraft) => void }) {
   const [copied, setCopied] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [subject, setSubject] = useState(draft.subject);
+  const [body, setBody] = useState(draft.body);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   async function copy(what: 'subject' | 'all', text: string) {
     try {
@@ -300,18 +305,70 @@ function EmailDraftView({ draft }: { draft: EmailDraft }) {
     }
   }
 
+  function startEditing() {
+    setSubject(draft.subject);
+    setBody(draft.body);
+    setError('');
+    setEditing(true);
+  }
+
+  async function save() {
+    if (!subject.trim() || !body.trim()) { setError('A subject and a message are both required'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      onSaved(await api.summary.updateEmail(meetingId, { subject, body }));
+      setEditing(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <section className={styles.emailDraft}>
+        <div className={styles.emailHeader}>
+          <h3>Follow-up email</h3>
+        </div>
+        <label className={styles.emailLabel} htmlFor="email-subject">Subject</label>
+        <input
+          id="email-subject"
+          className={styles.emailSubjectInput}
+          value={subject}
+          maxLength={200}
+          disabled={saving}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+        <label className={styles.emailLabel} htmlFor="email-body">Message</label>
+        <textarea
+          id="email-body"
+          className={styles.emailBodyInput}
+          value={body}
+          rows={Math.min(24, Math.max(8, body.split('\n').length + 2))}
+          disabled={saving}
+          onChange={(e) => setBody(e.target.value)}
+        />
+        <div className={styles.emailEditActions}>
+          <button className={styles.emailCopyBtn} onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <button className={styles.titleCancel} onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+          {error && <span className={styles.errorText}>{error}</span>}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={styles.emailDraft}>
       <div className={styles.emailHeader}>
         <h3>Follow-up email</h3>
-        <button
-          className={styles.emailCopyBtn}
-          onClick={() => copy('all', `${draft.subject}
-
-${draft.body}`)}
-        >
-          {copied === 'all' ? 'Copied' : 'Copy'}
-        </button>
+        <div className={styles.emailHeaderActions}>
+          <button className={styles.titleCancel} onClick={startEditing}>Edit</button>
+          <button className={styles.emailCopyBtn} onClick={() => copy('all', [draft.subject, '', draft.body].join('\n'))}>
+            {copied === 'all' ? 'Copied' : 'Copy'}
+          </button>
+        </div>
       </div>
 
       <div className={styles.emailSubjectRow}>

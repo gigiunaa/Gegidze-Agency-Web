@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import crypto from 'crypto';
 import { config } from '../config';
-import type { Meeting, Recording, Transcription, Summary, Attendee, ZohoAttachment } from '../../../shared/types';
+import type { EmailDraft, Meeting, Recording, Transcription, Summary, Attendee, ZohoAttachment } from '../../../shared/types';
 
 export class DatabaseService {
   private pool: Pool;
@@ -138,6 +138,9 @@ export class DatabaseService {
     await this.queryWithRetry(`CREATE INDEX IF NOT EXISTS idx_transcriptions_meeting ON transcriptions(meeting_id)`);
     // The follow-up email came later than the rest of the notes
     await this.queryWithRetry(`ALTER TABLE summaries ADD COLUMN IF NOT EXISTS email_draft TEXT`);
+
+    // Set once a person edits the follow-up email, so writing the notes again keeps their version
+    await this.queryWithRetry(`ALTER TABLE summaries ADD COLUMN IF NOT EXISTS email_edited BOOLEAN NOT NULL DEFAULT false`);
 
     // Set once a person renames a call, so the calendar never writes over the name they chose
     await this.queryWithRetry(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS title_edited BOOLEAN NOT NULL DEFAULT false`);
@@ -337,13 +340,13 @@ export class DatabaseService {
   }
 
   // ─── Summaries ────────────────────────────────────────────────────
-  async createSummary(summary: Omit<Summary, 'id' | 'createdAt'>): Promise<Summary> {
+  async createSummary(summary: Omit<Summary, 'id' | 'createdAt'>, emailEdited = false): Promise<Summary> {
     const id = crypto.randomUUID();
     await this.queryWithRetry(`
-      INSERT INTO summaries (id, meeting_id, transcription_id, overview, key_points, action_items, decisions, email_draft)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO summaries (id, meeting_id, transcription_id, overview, key_points, action_items, decisions, email_draft, email_edited)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `, [id, summary.meetingId, summary.transcriptionId, summary.overview, JSON.stringify(summary.sections), JSON.stringify(summary.nextSteps), "[]",
-        summary.emailDraft ? JSON.stringify(summary.emailDraft) : null]);
+        summary.emailDraft ? JSON.stringify(summary.emailDraft) : null, !!emailEdited]);
     return (await this.getSummaryById(id))!;
   }
 
@@ -372,6 +375,24 @@ export class DatabaseService {
       ...(row.email_draft ? { emailDraft: typeof row.email_draft === 'string' ? JSON.parse(row.email_draft) : row.email_draft } : {}),
       createdAt: row.created_at as string,
     };
+  }
+
+  // A person's own version of the follow-up email, on the newest notes for the call
+  async updateEmailDraft(meetingId: string, draft: EmailDraft): Promise<void> {
+    await this.queryWithRetry(`
+      UPDATE summaries SET email_draft = $1, email_edited = true
+      WHERE id = (SELECT id FROM summaries WHERE meeting_id = $2 ORDER BY created_at DESC LIMIT 1)
+    `, [JSON.stringify(draft), meetingId]);
+  }
+
+  // The email as someone last edited it, if anyone did — carried over when the notes are rewritten
+  async editedEmailDraft(meetingId: string): Promise<EmailDraft | null> {
+    const res = await this.queryWithRetry(
+      'SELECT email_draft FROM summaries WHERE meeting_id = $1 AND email_edited ORDER BY created_at DESC LIMIT 1',
+      [meetingId]);
+    const raw = res.rows[0]?.email_draft;
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
   }
 
   // The newest summary per meeting, for those that never got a follow-up email

@@ -584,3 +584,46 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+/* ─── Editing the follow-up email ───────────────────────────────────────── */
+.emailHeaderActions {
+  display: flex;
+  gap: 8px;
+}
+
+.emailSubjectInput,
+.emailBodyInput {
+  display: block;
+  width: 100%;
+  margin: 6px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.emailSubjectInput {
+  font-weight: 600;
+}
+
+/* Sized to the letter and kept in its own lines, the way it will be sent */
+.emailBodyInput {
+  line-height: 1.7;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+.emailSubjectInput:focus,
+.emailBodyInput:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.emailEditActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

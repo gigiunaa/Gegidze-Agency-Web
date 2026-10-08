@@ -90,7 +90,7 @@ async function downloadFile(url: string, fileName: string): Promise<void> {
 }
 
 // ─── API Methods ────────────────────────────────────────────────────
-import type { Meeting, Transcription, Summary, AuthResponse, User, ZohoAttachment } from '../../../shared/types';
+import type { Meeting, Transcription, Summary, EmailDraft, AuthResponse, User, ZohoAttachment } from '../../../shared/types';
 
 export const api = {
   auth: {
@@ -125,6 +125,7 @@ export const api = {
     get: (meetingId: string) => get<Summary | null>(`/summaries/${meetingId}`),
     generate: (transcriptionId: string) => post('/summaries/generate', { transcriptionId }),
     backfillEmails: () => post<{ started: number }>('/summaries/backfill-emails'),
+    updateEmail: (meetingId: string, draft: EmailDraft) => patch<EmailDraft>(`/summaries/${meetingId}/email`, draft),
   },
 
   google: {

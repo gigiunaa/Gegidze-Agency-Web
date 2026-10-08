@@ -110,10 +110,14 @@ export class SummaryService {
       owner?.name ?? '',
     );
 
+    // Someone who already rewrote the follow-up email by hand keeps their version. Writing the
+    // notes again ("Try again") would otherwise quietly throw their edits away.
+    const edited = await this.db.editedEmailDraft(transcription.meetingId);
     await this.db.createSummary({
       meetingId: transcription.meetingId,
       transcriptionId: transcription.id,
       ...notes,
-    });
+      ...(edited ? { emailDraft: edited } : {}),
+    }, !!edited);
   }
 }
